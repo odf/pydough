@@ -1,0 +1,5 @@
+This project originated from a group attempt at writing a series of exporters for Poser scenes to various advanced renderers, starting with LuxRender.
+
+Implementing the geometry exporter seemed like a straightforward task at first, but in order to work around certain limitations of both Poser and Lux, extended functionality such as automatic normal computation and mesh subdivision had to be added. So I've decided to take the code out and turn it into a more structured and complete library.
+
+Status: the code is taken out. The process of turning it into a library is about to start.
