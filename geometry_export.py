@@ -1,4 +1,7 @@
-__version__ = "0.0818"
+"""
+This is the original exporter code from which the beginnings of the pydough
+library will be extracted.
+"""
 
 import math, sys
 import poser
