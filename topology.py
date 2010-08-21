@@ -22,9 +22,9 @@ class Topology(object):
         then passed to the add_polygons() method.
         """
         
-        self._polygons           = []
-        self._vertex_to_halfedge = {}
-        self._next_halfedge      = {}
+        self._polygons = []
+        self._adjacent = {}
+        self._nextedge = {}
 
         self.add_polygons(polygons)
 
@@ -48,11 +48,11 @@ class Topology(object):
 
         for i in xrange(len(polygon)):
             u, v, w = vertices[i : i+3]
-            if self._next_halfedge.has_key((u, v)):
+            if self._nextedge.has_key((u, v)):
                 raise TopologyError("The same oriented edge occurred twice.")
             else:
-                self._next_halfedge[(u, v)] = (v, w)
-            self._vertex_to_halfedge[u] = (u, v)
+                self._nextedge[(u, v)] = (v, w)
+            self._adjacent.setdefault(u, []).append(v)
             
         self._polygons.append(polygon[:])
 
@@ -62,20 +62,22 @@ class Topology(object):
     polygons = property(polygons)
 
     def vertices(self):
-        for v in self._vertex_to_halfedge.keys():
+        for v in self._adjacent.keys():
             yield v
     vertices = property(vertices)
 
-    def next_in_polygon(self, v, w):
-        return self._next_halfedge[(v, w)]
+    def opposite(self, (v, w)):
+        if self._nextedge.get((w, v)):
+            return (w, v)
+        else:
+            return None
+
+    def on_boundary(self, (v, w)):
+        return self.opposite((v, w)) is None
+
+    def next_in_polygon(self, (v, w)):
+        return self._nextedge.get((v, w))
 
     def neighbor_vertices(self, v):
-        _, w = self._vertex_to_halfedge[v]
-        first = w
-        while True:
+        for w in self._adjacent.get(v, []):
             yield w
-            _, w = self._next_halfedge[(w, v)]
-            if w == first: break
-
-    def on_boundary(self, v, w):
-        return not self._next_halfedge.has_key((w, v))
