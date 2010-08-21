@@ -22,10 +22,9 @@ class Topology(object):
         then passed to the add_polygons() method.
         """
         
-        self._polygons = []
-        self._vertices = {}
-        self._halfedge = {}
-        self._opposite = {}
+        self._polygons           = []
+        self._vertex_to_halfedge = {}
+        self._next_halfedge      = {}
 
         self.add_polygons(polygons)
 
@@ -45,21 +44,38 @@ class Topology(object):
         any hashable object will do).
         """
         
-        index = len(self._polygons)
-        size = len(polygon)
+        vertices = polygon + polygon[:2]
 
-        for i, v, w in zip(xrange(size), polygon, polygon[1:] + polygon[:1]):
-            this = (index, i)
-            if self._halfedge.has_key((v, w)):
+        for i in xrange(len(polygon)):
+            u, v, w = vertices[i : i+3]
+            if self._next_halfedge.has_key((u, v)):
                 raise TopologyError("The same oriented edge occurred twice.")
             else:
-                self._halfedge[(v, w)] = this
-            other = self._halfedge.get((w, v), None)
-            self._opposite[this] = other
-            if other:
-                self._opposite[other] = this
-
+                self._next_halfedge[(u, v)] = (v, w)
+            self._vertex_to_halfedge[u] = (u, v)
+            
         self._polygons.append(polygon[:])
 
-        for v in polygon:
-            self._vertices[v] = True
+    def polygons(self):
+        for poly in self._polygons:
+            yield poly[:]
+    polygons = property(polygons)
+
+    def vertices(self):
+        for v in self._vertex_to_halfedge.keys():
+            yield v
+    vertices = property(vertices)
+
+    def next_in_polygon(self, v, w):
+        return self._next_halfedge[(v, w)]
+
+    def neighbor_vertices(self, v):
+        _, w = self._vertex_to_halfedge[v]
+        first = w
+        while True:
+            yield w
+            _, w = self._next_halfedge[(w, v)]
+            if w == first: break
+
+    def on_boundary(self, v, w):
+        return not self._next_halfedge.has_key((w, v))
