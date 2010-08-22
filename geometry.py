@@ -1,133 +1,154 @@
-import math
+print "Loading ", __name__
+
+import Numeric as num
 
 
-class Mesh(object):
-    def __init__(self, polys):
-        self.polys        = []
-        self.index_map    = imap = {}
-        self.used_indices = used = []
+class Geometry(object):
+    def __init__(self, verts, polys, poly_mats = None, normals = None,
+                 tverts = None, tpolys = None):
+        self.verts     = verts
+        self.polys     = polys
+        self.poly_mats = poly_mats
+        self.normals   = normals
+        self.tverts    = tverts
+        self.tpolys    = tpolys
 
-        self.polys = [None] * len(polys)
-        for i, poly in enumerate(polys):
-            for v in poly:
-                if not imap.has_key(v):
-                    imap[v] = len(used)
-                    used.append(v)
+    def compute_normals(self):
+        rotate  = lambda v: num.take(v, [1,2,0], 1)
+        verts   = self.verts
+        normals = num.zeros([len(verts), 3], "double")
 
-            self.polys[i] = [imap[v] for v in poly]
+        for indices in self.polys:
+            p = num.take(verts, indices)
+            q = num.take(verts, indices[1:] + indices[:1])
+            n = num.sum(p * rotate(q) - q * rotate(p))
+            n = n / num.sqrt(num.maximum(num.dot(n, n), 1e-16))
 
+            for v in indices: normals[v] += n
 
-class Subgeometry(object):
-    def __init__(self, base, indices):
-        self.verts   = base.verts
-        self.tverts  = base.tverts
-        self.normals = base.normals
+        norms = num.sqrt(num.maximum(num.sum(normals * normals, 1), 1e-16))
+        self.normals = rotate(normals) / norms[:, num.NewAxis]
 
-        self.mesh = Mesh([base.polys[i] for i in indices])
-        
-        if base.tpolys:
-            self.tmesh = Mesh([base.tpolys[i] for i in indices])
+    def interpolate(self, center, adj):
+        self.verts[center] = num.sum(num.take(self.verts, adj)) / len(adj)
+        if self.normals:
+            n = num.sum(num.take(self.normals, adj))
+            self.normals[center] = n / num.sqrt(num.maximum(num.dot(n, n),
+                                                                1e-16))
 
-    def fix_texture_seams(self):
-        used = self.mesh.used_indices
-        polygons = self.mesh.polys
-        tpolygons = self.tmesh.polys
-
-        corners_by_vertex = {}
-        for v in xrange(len(used)):
-            corners_by_vertex[v] = []
-            
-        for i, poly in enumerate(polygons):
-            for j, v in enumerate(poly):
-                corners_by_vertex[v].append((i, j))
-
-        for v, corners_for_v in corners_by_vertex.items():
-            tverts = [tpolygons[i][j] for i,j in corners_for_v]
-            tverts.sort()
-            if tverts[0] == tverts[-1]:
-                continue
-            
-            original_vertex = used[v]
-
-            by_tvert = {}
-            for i, j in corners_for_v:
-                by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
-
-            by_texture_position = {}
-            for tv in by_tvert.keys():
-                key = tuple([int(math.floor(x * 5000 + 0.5))
-                             for x in self.tverts[self.tmesh.used_indices[tv]]])
-                by_texture_position.setdefault(key, []).append(tv)
-
-            remap = {}
-            for colliding in by_texture_position.values():
-                for tv in colliding:
-                    remap[tv] = colliding[0]
-
-            for i, j in corners_for_v:
-                tpolygons[i][j] = remap[tpolygons[i][j]]
-
-            by_tvert = {}
-            for i, j in corners_for_v:
-                by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
-            for tv, corners_for_tv in by_tvert.items()[1:]:
-                new_v = len(used)
-                used.append(original_vertex)
-                for i, j in corners_for_tv:
-                    polygons[i][j] = new_v
-
-    def reorder_tex_verts(self):
-        mesh = self.mesh
-        tmesh = self.tmesh
-        nr_verts = len(mesh.used_indices)
-        
-        corner_to_tex = [None] * nr_verts
-        corner_from_tex = {}
-        
-        for i, p in enumerate(mesh.polys):
-            for j, v in enumerate(p):
-                if corner_to_tex[v] is None:
-                    tv = tmesh.polys[i][j]
-                    corner_to_tex[v] = tv
-                    corner_from_tex[tv] = v
-
-        tmesh.used_indices = [tmesh.used_indices[i] for i in corner_to_tex]
-        for i, p in enumerate(tmesh.polys):
-            tmesh.polys[i] = [corner_from_tex[v] for v in p]
-
-    def write(self, file):
-        if self.tverts:
-            self.fix_texture_seams()
-            self.reorder_tex_verts()
-        
-        print >>file, 'Shape "mesh"'
-        if self.mesh.polys:
-            print >>file, ' "integer triindices" ['
-            for poly in self.mesh.polys:
-                for v in xrange(1, len(poly) - 1):
-                    print >>file, poly[0], poly[v], poly[v + 1]
-            print >>file, ']\n'
-
-        fmt2d = "%.8f %.8f"
-        fmt3d = "%.8f %.8f %.8f"
-
-        verts = self.verts
-        if verts and self.mesh.used_indices:
-            print >>file, ' "point P" ['
-            for i in self.mesh.used_indices:
-                print >>file, fmt3d % tuple(verts[i])
-            print >>file, ']\n'
-
+    def subdivide(self):
+        # -- grab some instance data
+        verts   = self.verts
         normals = self.normals
-        if normals and self.mesh.used_indices:
-            print >>file, ' "normal N" ['
-            for i in self.mesh.used_indices:
-                print >>file, fmt3d % tuple(normals[i])
-            print >>file, ']\n'
+        
+        original_polys        = self.polys
+        original_poly_mats    = self.poly_mats
+        original_vertex_count = len(verts)
+        
+        # -- holds next available vertex index
+        next_index = len(verts)
 
-        tverts = self.tverts
-        if tverts and self.tmesh.used_indices:
-            print >>file, ' "float uv" ['
-            for i in self.tmesh.used_indices:
-                print >>file, fmt2d % tuple(tverts[i])
-            print >>file, ']\n'
+        # -- count edges and assign vertex indices for edge centers
+        edge_centers  = {}
+        edge_center_to_poly_centers = {}
+        vertex_to_edge_centers = [[] for v in xrange(original_vertex_count)]
+
+        for poly in original_polys:
+            for u, v in zip(poly, poly[1:] + poly[:1]):
+                if edge_centers.has_key((v, u)):
+                    ec = edge_centers[(u, v)] = edge_centers[(v, u)]
+                else:
+                    ec = edge_centers[(u, v)] = next_index
+                    next_index += 1
+                    edge_center_to_poly_centers[ec] = []
+                    vertex_to_edge_centers[u].append(ec)
+                    vertex_to_edge_centers[v].append(ec)
+
+        # -- make room for edge and polygon centers in vertex arrays
+        new_size = next_index + len(original_polys)
+        self.verts = verts = num.resize(verts, (new_size, 3))
+        if normals:
+            self.normals = normals = num.resize(normals, (new_size, 3))
+
+        # -- create the polygon centers and new polygons
+        vertex_to_poly_centers = [[] for v in xrange(original_vertex_count)]
+
+        self.polys     = polys     = []
+        self.poly_mats = poly_mats = []
+
+        for i, poly in enumerate(original_polys):
+            if len(poly) < 1: continue
+
+            # -- claim next free vertex index
+            center = next_index
+            next_index += 1
+
+            # -- interpolate 3d and texture coordinates and normals
+            self.interpolate(center, poly)
+
+            # -- get the edge centers on the polygon's boundary
+            ecs = [edge_centers[(u, v)]
+                   for u, v in zip(poly, poly[1:] + poly[:1])]
+
+            # -- subdivide the polygon
+            mat = original_poly_mats[i]
+            
+            for u, v, w in zip(ecs[-1:] + ecs[:-1], poly, ecs):
+                polys.append([u, v, w, center])
+                poly_mats.append(mat)
+                vertex_to_poly_centers[v].append(center)
+
+            # -- link edge centers to new polygon center
+            for ec in ecs:
+                edge_center_to_poly_centers[ec].append(center)
+
+        # -- subdivide the texture polygons
+        if self.tverts:
+            tverts  = self.tverts
+            n = len(tverts)
+            tverts_needed = n + sum([1 + len(tpoly) for tpoly in self.tpolys])
+            self.tverts = tverts = num.resize(tverts, (tverts_needed, 2))
+        
+            original_tpolys = self.tpolys
+            self.tpolys = tpolys = []
+
+            for i, poly in enumerate(original_tpolys):
+                nv = len(poly)
+                if nv < 1: continue
+                ecs = range(n, n+nv)
+                for u, v in zip(poly, poly[1:] + poly[:1]):
+                    tverts[n] = (tverts[u] + tverts[v]) / 2
+                    n += 1
+                tverts[n] = num.sum(num.take(tverts, ecs)) / nv
+                for u, v, w in zip(ecs[-1:] + ecs[:-1], poly, ecs):
+                    tpolys.append([u, v, w, n])
+                n += 1
+
+        # -- flag border vertices
+        on_border = [False] * len(verts)
+        for (u,v), ec in edge_centers.items():
+            if len(edge_center_to_poly_centers[ec]) == 1:
+                on_border[u] = on_border[v] = on_border[ec] = True
+
+        # -- adjust edge center positions
+        for (u, v), ec in edge_centers.items():
+            if u > v and edge_centers.has_key((v, u)): continue
+            if on_border[ec]:
+                self.interpolate(ec, [u, v])
+            else:
+                self.interpolate(ec, [u, v] + edge_center_to_poly_centers[ec])
+
+        # -- adjust positions of original vertices
+        for v in xrange(original_vertex_count):
+            ecs = vertex_to_edge_centers[v]
+            pcs = vertex_to_poly_centers[v]
+            k = len(ecs)
+
+            if k < 2: continue
+            
+            if on_border[v]:
+                self.interpolate(v, [u for u in ecs if on_border[u]])
+            else:
+                a = num.sum(num.take(verts, ecs)) * 4 / k
+                b = num.sum(num.take(verts, pcs)) / k
+                verts[v] = (verts[v] * (k - 3) + a - b) / k
