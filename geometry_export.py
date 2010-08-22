@@ -14,7 +14,7 @@ reload(submesh)
 from submesh import Submesh
 
 
-class GeometryExporter(Geometry):
+class GeometryExporter(object):
     def __init__(self, actor_or_figure, material_converter = None, options = {}):
         self.convert_material = material_converter or (
             lambda mat, key: "# Material \'%s/%s\'" % (key, mat.Name()))
@@ -27,18 +27,18 @@ class GeometryExporter(Geometry):
             self.figure = actor_or_figure
             data = self.get_data_from_unimesh()
         else:
-            raise RuntimeError("Argument must be an actor or figure.")
+            raise TypeError("Argument must be an actor or figure.")
 
         verts, polys, poly_mats, tverts, tpolys, self.materials = data
-        Geometry.__init__(self, verts, polys, poly_mats, None, tverts, tpolys)
+        self.geom = Geometry(verts, polys, poly_mats, None, tverts, tpolys)
 
-        self.empty = not self.polys
+        self.empty = not polys
 
         if not self.empty:
             if options.get('compute_normals', True):
-                self.compute_normals()
+                self.geom.compute_normals()
             for i in xrange(options.get('subdivisionlevel', 0)):
-                self.subdivide()
+                self.geom.subdivide()
 
     def get_data_from_actor(self):
         geom = self.actor.Geometry()
@@ -107,10 +107,11 @@ class GeometryExporter(Geometry):
         if self.empty: return
         
         for mat_idx, material in enumerate(self.materials):
-            indices = [i for i,n in enumerate(self.poly_mats) if n == mat_idx]
+            indices = [i for i,n in enumerate(self.geom.poly_mats)
+                       if n == mat_idx]
 
             if indices:
                 print >>file, 'AttributeBegin'
                 print >>file, material
-                self.write_submesh(file, Submesh(self, indices))
+                self.write_submesh(file, Submesh(self.geom, indices))
                 print >>file, 'AttributeEnd\n'
