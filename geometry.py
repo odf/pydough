@@ -13,7 +13,39 @@ class Geometry(object):
         self.tverts    = tverts
         self.tpolys    = tpolys
 
+        self.polys_at_vert = pav = [[] for v in self.verts]
+        for i, poly in enumerate(self.polys):
+            for v in poly:
+                pav[v].append(i)
+
     def compute_normals(self):
+        rotate = lambda v: num.take(v, [1,2,0], 1)
+        
+        p_indices = num.concatenate(self.polys)
+        q_indices = num.concatenate([p[1:] + p[:1] for p in self.polys])
+
+        ends = num.add.accumulate([len(p) for p in self.polys])
+        starts = num.concatenate([[0], ends])
+        sets = [range(a,o) for a, o in zip(starts, ends)]
+
+        p = num.take(self.verts, p_indices)
+        q = num.take(self.verts, q_indices)
+        cross = rotate(p * rotate(q) - q * rotate(p))
+
+        normals = num.array([num.sum(num.take(cross, s)) for s in sets])
+        norms = num.sqrt(num.maximum(num.sum(normals * normals, 1), 1e-16))
+        self.face_normals = fnormals = normals / norms[:, num.NewAxis]
+
+        normals = num.array([num.sum(num.take(fnormals, s))
+                             for s in self.polys_at_vert])
+        norms = num.sqrt(num.maximum(num.sum(normals * normals, 1), 1e-16))
+        self.normals = normals / norms[:, num.NewAxis]
+
+    def compute_normals_slower(self):
+        """
+        Alternative function for computing the vertex normals, Slower,
+        but slightly less cryptic.
+        """
         rotate  = lambda v: num.take(v, [1,2,0], 1)
         verts   = self.verts
         normals = num.zeros([len(verts), 3], "double")
