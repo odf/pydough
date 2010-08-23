@@ -21,16 +21,28 @@ class Topology(object):
 
 class Submesh(object):
     def __init__(self, base, indices):
+        self.message = None
         self._verts   = base.verts
-        self._tverts  = base.tverts
         self._normals = base.normals
+        self._tverts  = None
 
         self._topology = Topology([base.polys[i] for i in indices])
         
-        if base.tpolys:
-            self._tex_topology = Topology([base.tpolys[i] for i in indices])
-            self.fix_texture_seams()
-            self.reorder_tex_verts()
+        if not base.tpolys: return
+
+        if len(base.tpolys) != len(base.polys):
+            self.message = "Incorrect number of texture polygons."
+            return
+        
+        for i in indices:
+            if len(base.tpolys[i]) != len(base.polys[i]):
+                self.message = "Texture polygon of incorrect size."
+                return
+
+        self._tverts  = base.tverts
+        self._tex_topology = Topology([base.tpolys[i] for i in indices])
+        self.fix_texture_seams()
+        self.reorder_tex_verts()
 
     def fix_texture_seams(self):
         used      = self._topology.used_indices

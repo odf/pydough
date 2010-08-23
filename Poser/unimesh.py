@@ -99,8 +99,6 @@ class Unimesh(object):
         return materials, map_material
 
     def collect_data(self):
-        print "Converting figure %s to a single mesh:" % self.figure.Name()
-
         welding_info = WeldingInfo(self.figure)
         actors = welding_info.used_actors
         nr_verts = welding_info.vertex_count
@@ -110,12 +108,8 @@ class Unimesh(object):
         nr_tpolys = sum([len(actor.Geometry().TexPolygons())
                          for actor in actors])
 
-        print ("  %d vertices in welded vs %d in unwelded figure"
-               % (nr_verts, sum([a.Geometry().NumVertices() for a in actors])))
-
         materials, map_material = self.convert_materials_for_figure(actors)
         self.materials = materials
-        print "  %d listed materials" % len(materials)
 
         self.verts     = verts     = num.zeros([nr_verts, 3], "double")
         self.tverts    = tverts    = num.zeros([nr_tverts, 2], "double")
@@ -157,4 +151,3 @@ class Unimesh(object):
                     indices = tsets[start : start + p.NumTexVertices()]
                     tpolys[tpcount] = [map_tvert[v] for v in indices]
                     tpcount += 1
-        print

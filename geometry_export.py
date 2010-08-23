@@ -3,6 +3,8 @@ print "Loading ", __name__
 import poser
 import Numeric as num
 
+import Poser.unimesh
+reload(Poser.unimesh)
 from Poser.unimesh import Unimesh
 
 import geometry
@@ -21,10 +23,12 @@ class GeometryExporter(object):
         
         if isinstance(actor_or_figure, poser.ActorType):
             self.actor = actor_or_figure
+            print 'Exporting actor', self.actor.Name()
             self.figure = self.actor.ItsFigure()
             data = self.get_data_from_actor()
         elif isinstance(actor_or_figure, poser.FigureType):
             self.figure = actor_or_figure
+            print 'Exporting figure', self.figure.Name()
             data = self.get_data_from_unimesh()
         else:
             raise TypeError("Argument must be an actor or figure.")
@@ -113,5 +117,9 @@ class GeometryExporter(object):
             if indices:
                 print >>file, 'AttributeBegin'
                 print >>file, material
-                self.write_submesh(file, Submesh(self.geom, indices))
+                sub = Submesh(self.geom, indices)
+                if sub.message:
+                    print "\nIn", material,
+                    print "WARNING:", sub.message, "(UV coordinates removed)."
+                self.write_submesh(file, sub)
                 print >>file, 'AttributeEnd\n'
