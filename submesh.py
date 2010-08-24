@@ -3,6 +3,11 @@ print "Loading ", __name__
 import math
 
 
+class TopologyError(RuntimeError):
+    def __init__(self, message):
+        RuntimeError.__init__(self, message)
+        
+
 class Topology(object):
     def __init__(self, polys):
         self.polys        = []
@@ -21,28 +26,25 @@ class Topology(object):
 
 class Submesh(object):
     def __init__(self, base, indices):
-        self.message = None
-        self._verts   = base.verts
-        self._normals = base.normals
-        self._tverts  = None
-
-        self._topology = Topology([base.polys[i] for i in indices])
-        
-        if not base.tpolys: return
-
-        if len(base.tpolys) != len(base.polys):
-            self.message = "Incorrect number of texture polygons."
-            return
-        
-        for i in indices:
-            if len(base.tpolys[i]) != len(base.polys[i]):
-                self.message = "Texture polygon of incorrect size."
-                return
-
-        self._tverts  = base.tverts
+        self._base         = base
+        self._indices      = indices
+        self._topology     = Topology([base.polys[i] for i in indices])
         self._tex_topology = Topology([base.tpolys[i] for i in indices])
-        self.fix_texture_seams()
-        self.reorder_tex_verts()
+        self._tverts       = base.tverts
+        self._texture_good = True
+
+    def convert_to_per_vertex_uvs(self):
+        polys  = self._topology.polys
+        tpolys = self._tex_topology.polys
+        self._texture_good = False
+        
+        if tpolys:
+            if [len(p) for p in polys] != [len(p) for p in tpolys]:
+                raise TopologyError("corrupted UVs removed")
+
+            self.fix_texture_seams()
+            self.reorder_tex_verts()
+            self._texture_good = True
 
     def fix_texture_seams(self):
         used      = self._topology.used_indices
@@ -118,11 +120,11 @@ class Submesh(object):
     is_empty = property(is_empty)
 
     def has_normals(self):
-        return self._normals and self._topology.used_indices
+        return self._base.normals and self._topology.used_indices
     has_normals = property(has_normals)
 
     def has_texture_points(self):
-        return self._tverts and self._tex_topology.used_indices
+        return self._texture_good
     has_texture_points = property(has_texture_points)
 
     def triangles(self):
@@ -132,16 +134,19 @@ class Submesh(object):
     triangles = property(triangles)
 
     def points(self):
+        verts = self._base.verts
         for i in self._topology.used_indices:
-            yield tuple(self._verts[i])
+            yield tuple(verts[i])
     points = property(points)
 
     def normals(self):
+        normals = self._base.normals
         for i in self._topology.used_indices:
-            yield tuple(self._normals[i])
+            yield tuple(normals[i])
     normals = property(normals)
 
     def texture_points(self):
-        for i in self._tex_topology.used_indices:
-            yield tuple(self._tverts[i])
+        if self.has_texture_points:
+            for i in self._tex_topology.used_indices:
+                yield tuple(self._tverts[i])
     texture_points = property(texture_points)

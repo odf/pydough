@@ -13,7 +13,7 @@ from geometry import Geometry
 
 import submesh
 reload(submesh)
-from submesh import Submesh
+from submesh import Submesh, TopologyError
 
 
 class GeometryExporter(object):
@@ -110,16 +110,17 @@ class GeometryExporter(object):
     def write(self, file):
         if self.empty: return
         
-        for mat_idx, material in enumerate(self.materials):
+        for mat_idx, mat in enumerate(self.materials):
             indices = [i for i,n in enumerate(self.geom.poly_mats)
                        if n == mat_idx]
 
             if indices:
                 print >>file, 'AttributeBegin'
-                print >>file, material
+                print >>file, mat
                 sub = Submesh(self.geom, indices)
-                if sub.message:
-                    print "\nIn", material,
-                    print "WARNING:", sub.message, "(UV coordinates removed)."
+                try:
+                    sub.convert_to_per_vertex_uvs()
+                except TopologyError, message:
+                    print "WARNING: In", mat.strip(), "-", message
                 self.write_submesh(file, sub)
                 print >>file, 'AttributeEnd\n'
