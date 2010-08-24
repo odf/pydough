@@ -77,7 +77,7 @@ class WeldingInfo(object):
         self.tvertex_count = tcount
 
 
-class Unimesh(object):
+class WeldedFigureMesh(object):
     def __init__(self, figure):
         self.figure = figure
         self.collect_data()
@@ -151,3 +151,26 @@ class Unimesh(object):
                     indices = tsets[start : start + p.NumTexVertices()]
                     tpolys[tpcount] = [map_tvert[v] for v in indices]
                     tpcount += 1
+
+
+class SimpleMesh(object):
+    def __init__(self, actor):
+        geom = actor.Geometry()
+        if geom and actor.Visible():
+            self.verts = num.array([[v.X(), v.Y(), v.Z()]
+                                    for v in geom.WorldVertices()], 'd')
+            sets  = geom.Sets()
+            self.polys = [sets[p.Start() : p.Start() + p.NumVertices()]
+                          for p in geom.Polygons()]
+            self.poly_mats = [p.MaterialIndex() for p in geom.Polygons()]
+            if geom.TexVertices():
+                self.tverts = num.array([[v.U(), v.V()]
+                                         for v in geom.TexVertices()], 'd')
+                tsets = geom.TexSets()
+                self.tpolys = [tsets[p.Start() : p.Start() + p.NumTexVertices()]
+                               for p in geom.TexPolygons()]
+            else:
+                self.tverts = self.tpolys = []
+            self.materials = geom.Materials()
+        else:
+            self.polys = None
