@@ -1,3 +1,6 @@
+print "Loading ", __name__
+
+import poser
 import Numeric as num
 
 def topological_order(children):
@@ -174,3 +177,19 @@ class SimpleMesh(object):
             self.materials = geom.Materials()
         else:
             self.polys = None
+
+
+def extract_mesh(subject):
+    if isinstance(subject, poser.ActorType):
+        print 'Exporting actor', subject.Name()
+        figure = subject.ItsFigure()
+        mesh = SimpleMesh(subject)
+    elif isinstance(subject, poser.FigureType):
+        print 'Exporting figure', subject.Name()
+        figure = subject
+        mesh = WeldedFigureMesh(subject)
+    else:
+        raise TypeError("Argument must be an actor or figure.")
+
+    mesh.material_key = (figure or subject).Name()
+    return mesh

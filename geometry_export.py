@@ -1,11 +1,8 @@
 print "Loading ", __name__
 
-import poser
-import Numeric as num
-
-import Poser.unimesh
-reload(Poser.unimesh)
-from Poser.unimesh import SimpleMesh, WeldedFigureMesh
+import poser_extractor
+reload(poser_extractor)
+from poser_extractor import extract_mesh
 
 import geometry
 reload(geometry)
@@ -18,28 +15,18 @@ from submesh import Submesh, TopologyError
 
 class GeometryExporter(object):
     def __init__(self, subject, convert_material = None, options = {}):
-        if isinstance(subject, poser.ActorType):
-            print 'Exporting actor', subject.Name()
-            figure = subject.ItsFigure()
-            mesh = SimpleMesh(subject)
-        elif isinstance(subject, poser.FigureType):
-            print 'Exporting figure', subject.Name()
-            figure = subject
-            mesh = WeldedFigureMesh(subject)
-        else:
-            raise TypeError("Argument must be an actor or figure.")
-
+        mesh = extract_mesh(subject)
         self.materials = mesh.materials
-        self.mat_key = (figure or subject).Name()
-        self.convert_material = convert_material or (lambda mat, key:
-                                                     "# " + mat.Name())
+        self.mat_key = mesh.material_key
+        self.convert_material = convert_material or (
+            lambda mat, key: "# " + mat.Name())
 
         if mesh.polys:
             self.geom = Geometry(mesh.verts, mesh.polys, mesh.poly_mats,
                                  None, mesh.tverts, mesh.tpolys)
             if options.get('compute_normals', True):
                 self.geom.compute_normals()
-            for i in xrange(options.get('subdivisionlevel', 0)):
+            for i in xrange(int(options.get('subdivisionlevel', 0))):
                 self.geom.subdivide()
         else:
             self.geom = None
