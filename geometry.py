@@ -3,6 +3,11 @@ print "Loading ", __name__
 import Numeric as num
 
 
+def normalize(rows):
+    norms = num.sqrt(num.maximum(num.sum(rows * rows, 1), 1e-16))
+    return rows / norms[:, num.NewAxis]
+
+
 class Geometry(object):
     def __init__(self, verts, polys, poly_mats = None, normals = None,
                  tverts = None, tpolys = None):
@@ -31,42 +36,18 @@ class Geometry(object):
         p = num.take(self.verts, p_indices)
         q = num.take(self.verts, q_indices)
         cross = rotate(p * rotate(q) - q * rotate(p))
-
         normals = num.array([num.sum(num.take(cross, s)) for s in sets])
-        norms = num.sqrt(num.maximum(num.sum(normals * normals, 1), 1e-16))
-        self.face_normals = fnormals = normals / norms[:, num.NewAxis]
 
-        normals = num.array([num.sum(num.take(fnormals, s))
-                             for s in self.polys_at_vert])
-        norms = num.sqrt(num.maximum(num.sum(normals * normals, 1), 1e-16))
-        self.normals = normals / norms[:, num.NewAxis]
-
-    def compute_normals_slower(self):
-        """
-        Alternative function for computing the vertex normals, Slower,
-        but slightly less cryptic.
-        """
-        rotate  = lambda v: num.take(v, [1,2,0], 1)
-        verts   = self.verts
-        normals = num.zeros([len(verts), 3], "double")
-
-        for indices in self.polys:
-            p = num.take(verts, indices)
-            q = num.take(verts, indices[1:] + indices[:1])
-            n = num.sum(p * rotate(q) - q * rotate(p))
-            n = n / num.sqrt(num.maximum(num.dot(n, n), 1e-16))
-
-            for v in indices: normals[v] += n
-
-        norms = num.sqrt(num.maximum(num.sum(normals * normals, 1), 1e-16))
-        self.normals = rotate(normals) / norms[:, num.NewAxis]
+        self.face_normals = fnormals = normalize(normals)
+        self.normals = normalize(num.array([num.sum(num.take(fnormals, s))
+                                            for s in self.polys_at_vert]))
 
     def interpolate(self, center, adj):
         self.verts[center] = num.sum(num.take(self.verts, adj)) / len(adj)
         if self.normals:
             n = num.sum(num.take(self.normals, adj))
             self.normals[center] = n / num.sqrt(num.maximum(num.dot(n, n),
-                                                                1e-16))
+                                                            1e-16))
 
     def subdivide(self):
         # -- grab some instance data
