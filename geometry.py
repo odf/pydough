@@ -26,19 +26,17 @@ class Geometry(object):
     def compute_normals(self):
         rotate = lambda v: num.take(v, [1,2,0], 1)
         
-        p_indices = num.concatenate(self.polys)
-        q_indices = num.concatenate([p[1:] + p[:1] for p in self.polys])
-
-        ends = num.add.accumulate([len(p) for p in self.polys])
-        starts = num.concatenate([[0], ends])
-        sets = [range(a,o) for a, o in zip(starts, ends)]
-
-        p = num.take(self.verts, p_indices)
-        q = num.take(self.verts, q_indices)
+        p = num.take(self.verts, num.concatenate(self.polys))
+        q = num.take(self.verts, num.concatenate([poly[1:] + poly[:1]
+                                                  for poly in self.polys]))
         cross = rotate(p * rotate(q) - q * rotate(p))
-        normals = num.array([num.sum(num.take(cross, s)) for s in sets])
 
+        ends    = num.add.accumulate([len(p) for p in self.polys])
+        starts  = num.concatenate([[0], ends])
+        normals = num.array([num.sum(num.take(cross, range(a,o)))
+                             for a, o in zip(starts, ends)])
         self.face_normals = fnormals = normalize(normals)
+
         self.normals = normalize(num.array([num.sum(num.take(fnormals, s))
                                             for s in self.polys_at_vert]))
 
