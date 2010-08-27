@@ -1,5 +1,6 @@
 print "Loading ", __name__
 
+import math
 import Numeric as num
 
 
@@ -8,13 +9,26 @@ def normalize(rows):
     return rows / norms[:, num.NewAxis]
 
 
+class TopologyError(RuntimeError):
+    def __init__(self, message):
+        RuntimeError.__init__(self, message)
+        
+
+class SubmeshData(object):
+    def __init__(self, verts, polys):
+        self.used  = list(dict([(v, True) for p in polys for v in p]))
+        vmap = dict(zip(self.used, xrange(len(self.used))))
+        self.polys = [[vmap[v] for v in p] for p in polys]
+        self.verts = num.take(verts, self.used)
+
+
 class Geometry(object):
     def __init__(self, verts, polys, poly_mats = None, normals = None,
                  tverts = None, tpolys = None):
         self.verts     = verts
         self.polys     = polys
         self.poly_mats = poly_mats
-        self.normals   = normals
+        self._normals  = normals
         self.tverts    = tverts
         self.tpolys    = tpolys
 
@@ -22,6 +36,22 @@ class Geometry(object):
         for i, poly in enumerate(self.polys):
             for v in poly:
                 pav[v].append(i)
+
+    def selection(self, poly_indices):
+        geomesh = SubmeshData(self.verts, [self.polys[i] for i in poly_indices])
+        poly_mats = [self.poly_mats[i] for i in poly_indices]
+        if self._normals:
+            normals = num.take(self._normals, geomesh.used)
+        else:
+            normals = None
+
+        if self.tpolys:
+            texmesh = SubmeshData(self.tverts,
+                                  [self.tpolys[i] for i in poly_indices])
+            return Geometry(geomesh.verts, geomesh.polys, poly_mats, normals,
+                            texmesh.verts, texmesh.polys)
+        else:
+            return Geometry(geomesh.verts, geomesh.polys, poly_mats, normals)
 
     def compute_normals(self):
         rotate = lambda v: num.take(v, [1,2,0], 1)
@@ -37,20 +67,20 @@ class Geometry(object):
                              for a, o in zip(starts, ends)])
         self.face_normals = fnormals = normalize(normals)
 
-        self.normals = normalize(num.array([num.sum(num.take(fnormals, s))
-                                            for s in self.polys_at_vert]))
+        self._normals = normalize(num.array([num.sum(num.take(fnormals, s))
+                                             for s in self.polys_at_vert]))
 
     def interpolate(self, center, adj):
         self.verts[center] = num.sum(num.take(self.verts, adj)) / len(adj)
-        if self.normals:
-            n = num.sum(num.take(self.normals, adj))
-            self.normals[center] = n / num.sqrt(num.maximum(num.dot(n, n),
-                                                            1e-16))
+        if self._normals:
+            n = num.sum(num.take(self._normals, adj))
+            self._normals[center] = n / num.sqrt(num.maximum(num.dot(n, n),
+                                                             1e-16))
 
     def subdivide(self):
         # -- grab some instance data
         verts   = self.verts
-        normals = self.normals
+        normals = self._normals
         
         original_polys        = self.polys
         original_poly_mats    = self.poly_mats
@@ -78,8 +108,8 @@ class Geometry(object):
         # -- make room for edge and polygon centers in vertex arrays
         new_size = next_index + len(original_polys)
         self.verts = verts = num.resize(verts, (new_size, 3))
-        if normals:
-            self.normals = normals = num.resize(normals, (new_size, 3))
+        if self._normals:
+            self._normals = normals = num.resize(normals, (new_size, 3))
 
         # -- create the polygon centers and new polygons
         vertex_to_poly_centers = [[] for v in xrange(original_vertex_count)]
@@ -163,3 +193,120 @@ class Geometry(object):
                 a = num.sum(num.take(verts, ecs)) * 4 / k
                 b = num.sum(num.take(verts, pcs)) / k
                 verts[v] = (verts[v] * (k - 3) + a - b) / k
+
+    def convert_to_per_vertex_uvs(self):
+        polys  = self.polys
+        tpolys = self.tpolys
+        
+        if tpolys:
+            if [len(p) for p in polys] != [len(p) for p in tpolys]:
+                self.tverts = None
+                raise TopologyError("corrupted UVs removed")
+
+            self.fix_texture_seams()
+            self.reorder_tex_verts()
+
+    def fix_texture_seams(self):
+        polygons  = self.polys
+        tpolygons = self.tpolys
+        nr_verts = len(self.verts)
+        copied_verts = []
+
+        corners_by_vertex = {}
+        for v in xrange(len(self.verts)):
+            corners_by_vertex[v] = []
+            
+        for i, poly in enumerate(polygons):
+            for j, v in enumerate(poly):
+                corners_by_vertex[v].append((i, j))
+
+        for v, corners_for_v in corners_by_vertex.items():
+            tverts = [tpolygons[i][j] for i,j in corners_for_v]
+            tverts.sort()
+            if tverts[0] == tverts[-1]:
+                continue
+            
+            original_vertex = v
+
+            by_tvert = {}
+            for i, j in corners_for_v:
+                by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
+
+            by_texture_position = {}
+            for tv in by_tvert.keys():
+                key = tuple([int(math.floor(x * 5000 + 0.5))
+                             for x in self.tverts[tv]])
+                by_texture_position.setdefault(key, []).append(tv)
+
+            remap = {}
+            for colliding in by_texture_position.values():
+                for tv in colliding:
+                    remap[tv] = colliding[0]
+
+            for i, j in corners_for_v:
+                tpolygons[i][j] = remap[tpolygons[i][j]]
+
+            by_tvert = {}
+            for i, j in corners_for_v:
+                by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
+            for tv, corners_for_tv in by_tvert.items()[1:]:
+                new_v = nr_verts + len(copied_verts)
+                copied_verts.append(original_vertex)
+                for i, j in corners_for_tv:
+                    polygons[i][j] = new_v
+
+        indices = range(nr_verts) + copied_verts
+        self.verts = num.take(self.verts, indices)
+        if self._normals: self._normals = num.take(self._normals, indices)
+
+    def reorder_tex_verts(self):
+        tpolys = self.tpolys
+        corner_to_tex = [None] * len(self.verts)
+        corner_from_tex = {}
+        
+        for i, p in enumerate(self.polys):
+            for j, v in enumerate(p):
+                if corner_to_tex[v] is None:
+                    tv = tpolys[i][j]
+                    corner_to_tex[v] = tv
+                    corner_from_tex[tv] = v
+
+        self.tverts = num.take(self.tverts, corner_to_tex)
+        self.tpolys = [[corner_from_tex[v] for v in p] for p in tpolys]
+
+    def is_empty(self):
+        return not self.polys
+    is_empty = property(is_empty)
+
+    def has_normals(self):
+        return self._normals and True
+    has_normals = property(has_normals)
+
+    def has_texture_points(self):
+        return self.tverts and True
+    has_texture_points = property(has_texture_points)
+
+    def triangles(self):
+        if not self.is_empty:
+            for poly in self.polys:
+                for v in xrange(1, len(poly) - 1):
+                    yield poly[0], poly[v], poly[v + 1]
+    triangles = property(triangles)
+
+    def points(self):
+        if not self.is_empty:
+            for v in self.verts:
+                yield tuple(v)
+    points = property(points)
+
+    def normals(self):
+        if self.has_normals:
+            for n in self._normals:
+                yield tuple(n)
+    normals = property(normals)
+
+    def texture_points(self):
+        if self.has_texture_points:
+            for v in self.tverts:
+                yield tuple(v)
+    texture_points = property(texture_points)

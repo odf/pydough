@@ -8,10 +8,6 @@ import geometry
 reload(geometry)
 from geometry import Geometry
 
-import submesh
-reload(submesh)
-from submesh import Submesh, TopologyError
-
 
 class GeometryExporter(object):
     def __init__(self, subject, convert_material = None, options = {}):
@@ -63,7 +59,7 @@ class GeometryExporter(object):
             print >>file, 'AttributeBegin'
             print >>file, self.convert_material(mat, self.mat_key)
             try:
-                sub = Submesh(self.geom, indices)
+                sub = self.geom.selection(indices)
                 sub.convert_to_per_vertex_uvs()
                 self.write_submesh(file, sub)
             except TopologyError, message:
