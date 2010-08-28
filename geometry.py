@@ -32,11 +32,6 @@ class Geometry(object):
         self.tverts    = tverts
         self.tpolys    = tpolys
 
-        self.polys_at_vert = pav = [[] for v in self.verts]
-        for i, poly in enumerate(self.polys):
-            for v in poly:
-                pav[v].append(i)
-
     def selection(self, poly_indices):
         geomesh = SubmeshData(self.verts, [self.polys[i] for i in poly_indices])
         poly_mats = [self.poly_mats[i] for i in poly_indices]
@@ -45,7 +40,7 @@ class Geometry(object):
         else:
             normals = None
 
-        if self.tpolys:
+        if self.tpolys and self.tverts:
             texmesh = SubmeshData(self.tverts,
                                   [self.tpolys[i] for i in poly_indices])
             return Geometry(geomesh.verts, geomesh.polys, poly_mats, normals,
@@ -67,8 +62,11 @@ class Geometry(object):
                              for a, o in zip(starts, ends)])
         self.face_normals = fnormals = normalize(normals)
 
-        self._normals = normalize(num.array([num.sum(num.take(fnormals, s))
-                                             for s in self.polys_at_vert]))
+        normals = num.zeros([len(self.verts), 3], "double")
+        for i, poly in enumerate(self.polys):
+            n = fnormals[i]
+            for v in poly: normals[v] += n
+        self._normals = normalize(normals)
 
     def interpolate(self, center, adj):
         self.verts[center] = num.sum(num.take(self.verts, adj)) / len(adj)
@@ -212,15 +210,12 @@ class Geometry(object):
         nr_verts = len(self.verts)
         copied_verts = []
 
-        corners_by_vertex = {}
-        for v in xrange(len(self.verts)):
-            corners_by_vertex[v] = []
-            
+        corners_by_vertex = [[] for v in self.verts]
         for i, poly in enumerate(polygons):
             for j, v in enumerate(poly):
                 corners_by_vertex[v].append((i, j))
 
-        for v, corners_for_v in corners_by_vertex.items():
+        for v, corners_for_v in enumerate(corners_by_vertex):
             tverts = [tpolygons[i][j] for i,j in corners_for_v]
             tverts.sort()
             if tverts[0] == tverts[-1]:

@@ -6,7 +6,7 @@ from poser_extractor import extract_mesh
 
 import geometry
 reload(geometry)
-from geometry import Geometry
+from geometry import Geometry, TopologyError
 
 
 class GeometryExporter(object):

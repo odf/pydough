@@ -143,7 +143,7 @@ class WeldedFigureMesh(object):
             if nr_tpolys:
                 new_tvert = welding_info.new_tvertex[name]
                 map_tvert = welding_info.map_tvertex[name]
-                for i, v in enumerate(geom.TexVertices()):
+                for i, v in enumerate(geom.TexVertices() or []):
                     if new_tvert[i]:
                         tverts[map_tvert[i]] = [v.U(), v.V()]
 
