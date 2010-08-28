@@ -58,10 +58,10 @@ class GeometryExporter(object):
 
             print >>file, 'AttributeBegin'
             print >>file, self.convert_material(mat, self.mat_key)
+            sub = self.geom.selection(indices)
             try:
-                sub = self.geom.selection(indices)
                 sub.convert_to_per_vertex_uvs()
-                self.write_submesh(file, sub)
             except TopologyError, message:
                 print "WARNING: In", mat.Name(), "-", message
+            self.write_submesh(file, sub)
             print >>file, 'AttributeEnd\n'
