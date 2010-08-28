@@ -92,7 +92,7 @@ class WeldedFigureMesh(object):
         materials = []
         for actor in actors:
             a_name = actor.Name()
-            for i, mat in enumerate(actor.Geometry().Materials()):
+            for i, mat in enumerate(actor.Geometry().Materials() or []):
                 m_name = mat.Name()
                 if not material_index.has_key(m_name):
                     material_index[m_name] = len(materials)
@@ -106,10 +106,8 @@ class WeldedFigureMesh(object):
         actors = welding_info.used_actors
         nr_verts = welding_info.vertex_count
         nr_tverts = welding_info.tvertex_count
-        nr_polys = sum([len(actor.Geometry().Polygons())
-                        for actor in actors])
-        nr_tpolys = sum([len(actor.Geometry().TexPolygons())
-                         for actor in actors])
+        nr_polys = sum([actor.Geometry().NumPolygons() for actor in actors])
+        nr_tpolys = sum([actor.Geometry().NumTexPolygons() for actor in actors])
 
         materials, map_material = self.convert_materials_for_figure(actors)
         self.materials = materials
@@ -118,7 +116,7 @@ class WeldedFigureMesh(object):
         self.tverts    = tverts    = num.zeros([nr_tverts, 2], "double")
         self.polys     = polys     = [None] * nr_polys
         self.poly_mats = poly_mats = [None] * nr_polys
-        self.tpolys    = tpolys    = [None] * nr_tpolys
+        self.tpolys    = tpolys    = [None] * nr_polys
 
         pcount  = 0
         tpcount = 0 
@@ -135,45 +133,50 @@ class WeldedFigureMesh(object):
                 if new_vert[i]:
                     verts[map_vert[i]] = [v.X(), v.Y(), v.Z()]
 
-            for p in geom.Polygons():
+            for p in (geom.Polygons() or []):
                 start = p.Start()
                 indices = sets[start : start + p.NumVertices()]
                 polys[pcount] = [map_vert[v] for v in indices]
                 poly_mats[pcount] = map_material[(name, p.MaterialIndex())]
                 pcount += 1
 
-            if geom.TexVertices():
+            if nr_tpolys:
                 new_tvert = welding_info.new_tvertex[name]
                 map_tvert = welding_info.map_tvertex[name]
                 for i, v in enumerate(geom.TexVertices()):
                     if new_tvert[i]:
                         tverts[map_tvert[i]] = [v.U(), v.V()]
 
-                for p in geom.TexPolygons():
+                for p in (geom.TexPolygons() or []):
                     start = p.Start()
                     indices = tsets[start : start + p.NumTexVertices()]
                     tpolys[tpcount] = [map_tvert[v] for v in indices]
                     tpcount += 1
 
+                for i in xrange(geom.NumPolygons() - geom.NumTexPolygons()):
+                    tpolys[tpcount] = []
+                    tpcount += 1
+
 
 class SimpleMesh(object):
     def __init__(self, actor):
+        grab  = lambda p, sets: sets[p.Start() : p.Start() + p.NumVertices()]
+        tgrab = lambda p, sets: sets[p.Start() : p.Start() + p.NumTexVertices()]
+        
         geom = actor.Geometry()
         if geom and actor.Visible():
-            self.verts = num.array([[v.X(), v.Y(), v.Z()]
-                                    for v in geom.WorldVertices()], 'd')
-            sets  = geom.Sets()
-            self.polys = [sets[p.Start() : p.Start() + p.NumVertices()]
-                          for p in geom.Polygons()]
-            self.poly_mats = [p.MaterialIndex() for p in geom.Polygons()]
-            if geom.TexVertices():
-                self.tverts = num.array([[v.U(), v.V()]
-                                         for v in geom.TexVertices()], 'd')
-                tsets = geom.TexSets()
-                self.tpolys = [tsets[p.Start() : p.Start() + p.NumTexVertices()]
-                               for p in geom.TexPolygons()]
-            else:
-                self.tverts = self.tpolys = []
+            verts  = geom.WorldVertices() or []
+            tverts = geom.TexVertices() or []
+            polys  = geom.Polygons() or []
+            tpolys = geom.TexPolygons() or []
+            sets   = geom.Sets()
+            tsets  = geom.TexSets()
+
+            self.verts  = num.array([[v.X(), v.Y(), v.Z()] for v in verts], 'd')
+            self.tverts = num.array([[v.U(), v.V()] for v in tverts], 'd')
+            self.polys  = [grab(p, sets) for p in polys]
+            self.tpolys = [tgrab(p, tsets) for p in tpolys]
+            self.poly_mats = [p.MaterialIndex() for p in polys]
             self.materials = geom.Materials()
         else:
             self.polys = None
