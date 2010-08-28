@@ -193,14 +193,20 @@ class Geometry(object):
                 verts[v] = (verts[v] * (k - 3) + a - b) / k
 
     def convert_to_per_vertex_uvs(self):
-        polys  = self.polys
-        tpolys = self.tpolys
-        
-        if tpolys:
-            if [len(p) for p in polys] != [len(p) for p in tpolys]:
-                self.tverts = None
+        if self.tpolys:
+            if len(self.polys) != len(self.tpolys):
+                self.tverts = self.tpolys = None
                 raise TopologyError("corrupted UVs removed")
+            count = 0
+            for poly, tpoly in zip(self.polys, self.tpolys):
+                if len(tpoly) != len(poly):
+                    count += 1
+                    if len(tpoly) == 0:
+                        tpoly.append(0)
+                    while len(tpoly) < len(poly):
+                        tpoly.append(tpoly[-1])
 
+            if count: print count, "bad UV polygons"
             self.fix_texture_seams()
             self.reorder_tex_verts()
 
