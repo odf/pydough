@@ -20,9 +20,12 @@ class GeometryExporter(object):
         if mesh.polys:
             self.geom = Geometry(mesh.verts, mesh.polys, mesh.poly_mats,
                                  None, mesh.tverts, mesh.tpolys)
+            print "Mesh has", len(self.geom.polys), "polygons and",
+            print len(self.geom.tpolys), "texture polygons"
             if options.get('compute_normals', True):
                 self.geom.compute_normals()
             for i in xrange(int(options.get('subdivisionlevel', 0))):
+                print "  subdividing: pass", (i+1)
                 self.geom.subdivide()
         else:
             self.geom = None

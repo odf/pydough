@@ -32,6 +32,21 @@ class Geometry(object):
         self.tverts    = tverts
         self.tpolys    = tpolys
 
+        if self.tpolys and self.tverts:
+            if len(self.polys) != len(self.tpolys):
+                self.tverts = self.tpolys = None
+                raise TopologyError("corrupted UVs removed")
+            count = 0
+            for poly, tpoly in zip(self.polys, self.tpolys):
+                if len(tpoly) != len(poly):
+                    count += 1
+                    if len(tpoly) == 0:
+                        tpoly.append(0)
+                    while len(tpoly) < len(poly):
+                        tpoly.append(tpoly[-1])
+
+            if count: print count, "bad UV polygons"
+
     def selection(self, poly_indices):
         geomesh = SubmeshData(self.verts, [self.polys[i] for i in poly_indices])
         poly_mats = [self.poly_mats[i] for i in poly_indices]
@@ -194,19 +209,6 @@ class Geometry(object):
 
     def convert_to_per_vertex_uvs(self):
         if self.tpolys and self.tverts:
-            if len(self.polys) != len(self.tpolys):
-                self.tverts = self.tpolys = None
-                raise TopologyError("corrupted UVs removed")
-            count = 0
-            for poly, tpoly in zip(self.polys, self.tpolys):
-                if len(tpoly) != len(poly):
-                    count += 1
-                    if len(tpoly) == 0:
-                        tpoly.append(0)
-                    while len(tpoly) < len(poly):
-                        tpoly.append(tpoly[-1])
-
-            if count: print count, "bad UV polygons"
             self.fix_texture_seams()
             self.reorder_tex_verts()
 
