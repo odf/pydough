@@ -193,7 +193,7 @@ class Geometry(object):
                 verts[v] = (verts[v] * (k - 3) + a - b) / k
 
     def convert_to_per_vertex_uvs(self):
-        if self.tpolys:
+        if self.tpolys and self.tverts:
             if len(self.polys) != len(self.tpolys):
                 self.tverts = self.tpolys = None
                 raise TopologyError("corrupted UVs removed")
