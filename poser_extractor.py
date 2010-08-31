@@ -26,7 +26,7 @@ def topological_order(children):
 
 def good_actor(actor):
     geom = actor.Geometry()
-    return (actor.Visible and geom
+    return (actor.Visible() and geom
             and geom.NumVertices() > 0 and geom.NumPolygons() > 0)
 
 
