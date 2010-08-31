@@ -24,6 +24,11 @@ def topological_order(children):
 
     return result
 
+def good_actor(actor):
+    geom = actor.Geometry()
+    return (actor.Visible and geom
+            and geom.NumVertices() > 0 and geom.NumPolygons() > 0)
+
 
 class WeldingInfo(object):
     def __init__(self, figure):
@@ -39,7 +44,6 @@ class WeldingInfo(object):
         return topological_order(after)
 
     def collect_info(self):
-        good_actor = lambda a: a.Geometry() and a.Visible()
         figure = self.figure
 
         self.map_vertex  = map_vertex = {}
