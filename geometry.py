@@ -8,9 +8,6 @@ def normalize(rows):
     norms = num.sqrt(num.maximum(num.sum(rows * rows, 1), 1e-16))
     return rows / norms[:, num.NewAxis]
 
-def tpos_key(pos):
-    return tuple([int(math.floor(x * 5000 + 0.5)) for x in pos])
-
 
 class TopologyError(RuntimeError):
     def __init__(self, message):
@@ -218,8 +215,7 @@ class Geometry(object):
     def fix_texture_seams(self):
         polygons  = self.polys
         tpolygons = self.tpolys
-        tverts    = self.tverts
-        nr_verts  = len(self.verts)
+        nr_verts = len(self.verts)
         copied_verts = []
 
         corners_by_vertex = [[] for v in self.verts]
@@ -228,20 +224,28 @@ class Geometry(object):
                 corners_by_vertex[v].append((i, j))
 
         for v, corners_for_v in enumerate(corners_by_vertex):
+            tverts = [tpolygons[i][j] for i,j in corners_for_v]
+            tverts.sort()
+            if tverts[0] == tverts[-1]:
+                continue
+            
+            original_vertex = v
+
             by_tvert = {}
             for i, j in corners_for_v:
                 by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
-            if len(by_tvert) < 2:
-                continue
 
-            by_tex_pos = {}
+            by_texture_position = {}
             for tv in by_tvert.keys():
-                by_tex_pos.setdefault(tpos_key(tverts[tv]), []).append(tv)
+                key = tuple([int(math.floor(x * 5000 + 0.5))
+                             for x in self.tverts[tv]])
+                by_texture_position.setdefault(key, []).append(tv)
 
             remap = {}
-            for colliding in by_tex_pos.values():
+            for colliding in by_texture_position.values():
                 for tv in colliding:
                     remap[tv] = colliding[0]
+
             for i, j in corners_for_v:
                 tpolygons[i][j] = remap[tpolygons[i][j]]
 
@@ -250,14 +254,13 @@ class Geometry(object):
                 by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
             for tv, corners_for_tv in by_tvert.items()[1:]:
                 new_v = nr_verts + len(copied_verts)
-                copied_verts.append(v)
+                copied_verts.append(original_vertex)
                 for i, j in corners_for_tv:
                     polygons[i][j] = new_v
 
         indices = range(nr_verts) + copied_verts
         self.verts = num.take(self.verts, indices)
-        if self._normals:
-            self._normals = num.take(self._normals, indices)
+        if self._normals: self._normals = num.take(self._normals, indices)
 
     def reorder_tex_verts(self):
         tpolys = self.tpolys

@@ -28,11 +28,13 @@ class GeometryExporter(object):
             for i in xrange(int(options.get('subdivisionlevel', 0))):
                 print "  subdividing: pass", (i+1)
                 self.geom.subdivide()
+            self.lux_subdiv = int(options.get('lux_subdivisionlevel', 0))
         else:
             self.geom = None
 
-    def write_submesh(self, file, sub):
+    def write_submesh(self, file, sub, extra):
         print >>file, 'Shape "mesh"'
+        if extra: print >>file, extra
 
         print >>file, ' "integer triindices" ['
         for u, v, w in sub.triangles: print >>file, u, v, w
@@ -54,6 +56,12 @@ class GeometryExporter(object):
 
     def write(self, file):
         if not self.geom: return
+        if self.lux_subdiv > 0:
+            extra = '\n'.join([
+                ' "integer nsubdivlevels" [%s]' % self.lux_subdiv,
+                ' "bool dmnormalsmooth" ["true"]'])
+        else:
+            extra = None
         
         for mat_idx, mat in enumerate(self.materials):
             indices = [i for i,n in enumerate(self.geom.poly_mats)
@@ -61,11 +69,14 @@ class GeometryExporter(object):
             if not indices: continue
 
             print >>file, 'AttributeBegin'
+
             print >>file, self.convert_material(mat, self.mat_key)
+
             sub = self.geom.selection(indices)
             try:
                 sub.convert_to_per_vertex_uvs()
             except TopologyError, message:
                 print "WARNING: In", mat.Name(), "-", message
-            self.write_submesh(file, sub)
+            self.write_submesh(file, sub, extra)
+
             print >>file, 'AttributeEnd\n'
