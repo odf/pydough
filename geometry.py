@@ -250,9 +250,11 @@ class Geometry(object):
                 for i, j in corners_for_tv:
                     polygons[i][j] = new_v
 
-        indices = range(nr_verts) + copied_verts
-        self.verts = num.take(self.verts, indices)
-        if self._normals: self._normals = num.take(self._normals, indices)
+        new_verts = num.take(self.verts, copied_verts)
+        self.verts = num.concatenate((self.verts, new_verts))
+        if self._normals:
+            new_normals = num.take(self._normals, copied_verts)
+            self._normals = num.concatenate((self._normals, new_normals))
 
     def reorder_tex_verts(self):
         tpolys = self.tpolys
