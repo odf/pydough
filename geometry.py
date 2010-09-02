@@ -224,21 +224,13 @@ class Geometry(object):
                 corners_by_vertex[v].append((i, j))
 
         for v, corners_for_v in enumerate(corners_by_vertex):
-            tverts = [tpolygons[i][j] for i,j in corners_for_v]
-            tverts.sort()
-            if tverts[0] == tverts[-1]:
+            by_tvert = dict([(tpolygons[i][j], True) for i, j in corners_for_v])
+            if len(by_tvert) < 2:
                 continue
-            
-            original_vertex = v
-
-            by_tvert = {}
-            for i, j in corners_for_v:
-                by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
 
             by_texture_position = {}
             for tv in by_tvert.keys():
-                key = tuple([int(math.floor(x * 5000 + 0.5))
-                             for x in self.tverts[tv]])
+                key = tuple([int(x * 5000) for x in self.tverts[tv]])
                 by_texture_position.setdefault(key, []).append(tv)
 
             remap = {}
@@ -254,7 +246,7 @@ class Geometry(object):
                 by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
             for tv, corners_for_tv in by_tvert.items()[1:]:
                 new_v = nr_verts + len(copied_verts)
-                copied_verts.append(original_vertex)
+                copied_verts.append(v)
                 for i, j in corners_for_tv:
                     polygons[i][j] = new_v
 
