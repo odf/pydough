@@ -212,24 +212,28 @@ class Geometry(object):
             self.fix_texture_seams()
             self.reorder_tex_verts()
 
+    def corners_by_vertex(self):
+        result = [[] for v in self.verts]
+        for i, poly in enumerate(self.polys):
+            for j, v in enumerate(poly):
+                result[v].append((i, j))
+        return result
+
     def fix_texture_seams(self):
         polygons  = self.polys
         tpolygons = self.tpolys
         nr_verts = len(self.verts)
         copied_verts = []
 
-        corners_by_vertex = [[] for v in self.verts]
-        for i, poly in enumerate(polygons):
-            for j, v in enumerate(poly):
-                corners_by_vertex[v].append((i, j))
+        corners = self.corners_by_vertex()
 
-        for v, corners_for_v in enumerate(corners_by_vertex):
+        for v, corners_for_v in enumerate(corners):
             by_tvert = dict([(tpolygons[i][j], True) for i, j in corners_for_v])
             if len(by_tvert) < 2:
                 continue
 
             by_texture_position = {}
-            for tv in by_tvert.keys():
+            for tv in by_tvert:
                 key = tuple([int(x * 5000) for x in self.tverts[tv]])
                 by_texture_position.setdefault(key, []).append(tv)
 
