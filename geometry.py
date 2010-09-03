@@ -222,11 +222,9 @@ class Geometry(object):
     def fix_texture_seams(self):
         polygons  = self.polys
         tpolygons = self.tpolys
-        nr_verts = len(self.verts)
-        copied_verts = []
+        corners   = self.corners_by_vertex()
 
-        corners = self.corners_by_vertex()
-
+        indices = range(len(self.verts))
         for v, corners_for_v in enumerate(corners):
             by_tvert = dict([(tpolygons[i][j], True) for i, j in corners_for_v])
             if len(by_tvert) < 2:
@@ -242,23 +240,19 @@ class Geometry(object):
                 for tv in colliding:
                     remap[tv] = colliding[0]
 
-            for i, j in corners_for_v:
-                tpolygons[i][j] = remap[tpolygons[i][j]]
+            for i, j in corners_for_v: tpolygons[i][j] = remap[tpolygons[i][j]]
 
             by_tvert = {}
             for i, j in corners_for_v:
                 by_tvert.setdefault(tpolygons[i][j], []).append((i, j))
-            for tv, corners_for_tv in by_tvert.items()[1:]:
-                new_v = nr_verts + len(copied_verts)
-                copied_verts.append(v)
-                for i, j in corners_for_tv:
-                    polygons[i][j] = new_v
 
-        new_verts = num.take(self.verts, copied_verts)
-        self.verts = num.concatenate((self.verts, new_verts))
-        if self._normals:
-            new_normals = num.take(self._normals, copied_verts)
-            self._normals = num.concatenate((self._normals, new_normals))
+            for tv, corners_for_tv in by_tvert.items()[1:]:
+                for i, j in corners_for_tv:
+                    polygons[i][j] = len(indices)
+                indices.append(v)
+
+        self.verts = num.take(self.verts, indices)
+        if self._normals: self._normals = num.take(self._normals, indices)
 
     def reorder_tex_verts(self):
         tpolys = self.tpolys
