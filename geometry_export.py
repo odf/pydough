@@ -10,7 +10,11 @@ from geometry import Geometry, TopologyError
 
 
 class GeometryExporter(object):
-    def __init__(self, subject, convert_material = None, options = {}):
+    def __init__(self, subject, convert_material = None,
+                 write_mesh_parameters = None, options = {}):
+        self.write_mesh_parameters = write_mesh_parameters
+        self.options = options
+
         mesh = extract_mesh(subject)
         self.materials = mesh.materials
         self.mat_key = mesh.material_key
@@ -28,13 +32,14 @@ class GeometryExporter(object):
             for i in xrange(int(options.get('subdivisionlevel', 0))):
                 print "  subdividing: pass", (i+1)
                 self.geom.subdivide()
-            self.lux_subdiv = int(options.get('lux_subdivisionlevel', 0))
         else:
             self.geom = None
 
-    def write_submesh(self, file, sub, extra):
+    def write_submesh(self, file, sub):
         print >>file, 'Shape "mesh"'
-        if extra: print >>file, extra
+
+        if self.write_mesh_parameters:
+            self.write_mesh_parameters(file, sub, self.options) 
 
         print >>file, ' "integer triindices" ['
         for u, v, w in sub.triangles: print >>file, u, v, w
@@ -56,12 +61,6 @@ class GeometryExporter(object):
 
     def write(self, file):
         if not self.geom: return
-        if self.lux_subdiv > 0:
-            extra = '\n'.join([
-                ' "integer nsubdivlevels" [%s]' % self.lux_subdiv,
-                ' "bool dmnormalsmooth" ["true"]'])
-        else:
-            extra = None
         
         for mat_idx, mat in enumerate(self.materials):
             indices = [i for i,n in enumerate(self.geom.poly_mats)
@@ -77,6 +76,6 @@ class GeometryExporter(object):
                 sub.convert_to_per_vertex_uvs()
             except TopologyError, message:
                 print "WARNING: In", mat.Name(), "-", message
-            self.write_submesh(file, sub, extra)
+            self.write_submesh(file, sub)
 
             print >>file, 'AttributeEnd\n'
