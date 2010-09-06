@@ -24,7 +24,7 @@ class SubmeshData(object):
 
 class Geometry(object):
     def __init__(self, verts, polys, poly_mats = None, normals = None,
-                 tverts = None, tpolys = None):
+                 tverts = None, tpolys = None, options = {}):
         self.verts     = verts
         self.polys     = polys
         self.poly_mats = poly_mats
@@ -32,22 +32,32 @@ class Geometry(object):
         self.tverts    = tverts
         self.tpolys    = tpolys
 
+        self.log = options.get('logger', self.default_logger)
+
         if self.tpolys and self.tverts:
             if len(self.polys) != len(self.tpolys):
                 self.tverts = self.tpolys = None
-                raise TopologyError("corrupted UVs removed")
-            count = 0
-            for poly, tpoly in zip(self.polys, self.tpolys):
-                if len(tpoly) != len(poly):
-                    count += 1
-                    if len(tpoly) == 0:
-                        tpoly.append(0)
-                    while len(tpoly) < len(poly):
-                        tpoly.append(tpoly[-1])
+                self.log("Corrupted UVs removed.")
+            else:
+                count = 0
+                for poly, tpoly in zip(self.polys, self.tpolys):
+                    if len(tpoly) != len(poly):
+                        count += 1
+                        if len(tpoly) == 0:
+                            tpoly.append(0)
+                        while len(tpoly) < len(poly):
+                            tpoly.append(tpoly[-1])
 
-            if count: print count, "bad UV polygons"
+                if count: self.log(count, "bad UV polygons")
 
-    def selection(self, poly_indices):
+    def default_logger(self, *args):
+        print " ".join(map(str, args))
+
+    def extract_by_material(self, material_index):
+        return self.extract([i for i, n in enumerate(self.poly_mats)
+                             if n == material_index])
+
+    def extract(self, poly_indices):
         geomesh = SubmeshData(self.verts, [self.polys[i] for i in poly_indices])
         poly_mats = [self.poly_mats[i] for i in poly_indices]
         if self._normals:

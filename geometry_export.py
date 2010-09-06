@@ -12,20 +12,21 @@ from geometry import Geometry, TopologyError
 class GeometryExporter(object):
     def __init__(self, subject, convert_material = None,
                  write_mesh_parameters = None, options = {}):
+        self.convert_material = convert_material or (
+            lambda mat, key: "# " + mat.Name())
         self.write_mesh_parameters = write_mesh_parameters
         self.options = options
 
         mesh = extract_mesh(subject)
         self.materials = mesh.materials
         self.mat_key = mesh.material_key
-        self.convert_material = convert_material or (
-            lambda mat, key: "# " + mat.Name())
 
         if mesh.polys:
             self.geom = Geometry(mesh.verts, mesh.polys, mesh.poly_mats,
                                  None, mesh.tverts, mesh.tpolys)
             print "Mesh has", len(self.geom.polys), "polygons and",
             print len(self.geom.tpolys), "texture polygons"
+
             do_normals = options.get('compute_normals', True)
             if do_normals and not do_normals in ['0', 'false', 'False']:
                 self.geom.compute_normals()
@@ -63,19 +64,11 @@ class GeometryExporter(object):
         if not self.geom: return
         
         for mat_idx, mat in enumerate(self.materials):
-            indices = [i for i,n in enumerate(self.geom.poly_mats)
-                       if n == mat_idx]
-            if not indices: continue
+            sub = self.geom.extract_by_material(mat_idx)
+            if sub.is_empty: continue
 
             print >>file, 'AttributeBegin'
-
             print >>file, self.convert_material(mat, self.mat_key)
-
-            sub = self.geom.selection(indices)
-            try:
-                sub.convert_to_per_vertex_uvs()
-            except TopologyError, message:
-                print "WARNING: In", mat.Name(), "-", message
+            sub.convert_to_per_vertex_uvs()
             self.write_submesh(file, sub)
-
             print >>file, 'AttributeEnd\n'
