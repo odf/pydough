@@ -9,11 +9,6 @@ def normalize(rows):
     return rows / norms[:, num.NewAxis]
 
 
-class TopologyError(RuntimeError):
-    def __init__(self, message):
-        RuntimeError.__init__(self, message)
-        
-
 class SubmeshData(object):
     def __init__(self, verts, polys):
         self.used  = list(dict([(v, True) for p in polys for v in p]))
@@ -68,8 +63,10 @@ class Geometry(object):
         if self.tpolys and self.tverts:
             texmesh = SubmeshData(self.tverts,
                                   [self.tpolys[i] for i in poly_indices])
-            return Geometry(geomesh.verts, geomesh.polys, poly_mats, normals,
+            geom = Geometry(geomesh.verts, geomesh.polys, poly_mats, normals,
                             texmesh.verts, texmesh.polys)
+            geom.reorder_tex_verts()
+            return geom
         else:
             return Geometry(geomesh.verts, geomesh.polys, poly_mats, normals)
 
@@ -280,38 +277,42 @@ class Geometry(object):
         self.tpolys = [[corner_from_tex[v] for v in p] for p in tpolys]
 
     def is_empty(self):
-        return not self.polys
+        return self.number_of_points == 0 or self.number_of_polygons == 0
     is_empty = property(is_empty)
 
-    def has_normals(self):
-        return self._normals and True
-    has_normals = property(has_normals)
+    def number_of_normals(self):
+        return len(self._normals or [])
+    number_of_normals = property(number_of_normals)
 
-    def has_texture_points(self):
-        return self.tverts and True
-    has_texture_points = property(has_texture_points)
+    def number_of_points(self):
+        return len(self.verts or [])
+    number_of_points = property(number_of_points)
+
+    def number_of_polygons(self):
+        return len(self.polys or [])
+    number_of_polygons = property(number_of_polygons)
+
+    def number_of_texture_points(self):
+        return len(self.tverts or [])
+    number_of_texture_points = property(number_of_texture_points)
 
     def triangles(self):
-        if not self.is_empty:
-            for poly in self.polys:
-                for v in xrange(1, len(poly) - 1):
-                    yield poly[0], poly[v], poly[v + 1]
+        for poly in (self.polys or []):
+            for v in xrange(1, len(poly) - 1):
+                yield poly[0], poly[v], poly[v + 1]
     triangles = property(triangles)
 
     def points(self):
-        if not self.is_empty:
-            for v in self.verts:
-                yield tuple(v)
+        for v in (self.verts or []):
+            yield tuple(v)
     points = property(points)
 
     def normals(self):
-        if self.has_normals:
-            for n in self._normals:
-                yield tuple(n)
+        for n in (self._normals or []):
+            yield tuple(n)
     normals = property(normals)
 
     def texture_points(self):
-        if self.has_texture_points:
-            for v in self.tverts:
-                yield tuple(v)
+        for v in (self.tverts or []):
+            yield tuple(v)
     texture_points = property(texture_points)
