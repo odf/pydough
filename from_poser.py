@@ -189,7 +189,7 @@ class SimpleMesh(object):
             self.polys = []
 
 
-def extract_geometry(subject):
+def get(subject):
     if isinstance(subject, poser.ActorType):
         print 'Exporting actor', subject.Name()
         figure = subject.ItsFigure()

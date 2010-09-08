@@ -1,6 +1,10 @@
 print "Loading ", __name__
 
-def to_lux(file, geometry, materials, write_mesh_parameters = None):
+
+def preprocess(geometry):
+    geometry.convert_to_per_vertex_uvs()
+
+def write(file, geometry, materials, write_mesh_parameters = None):
     if geometry.is_empty:
         return
         
