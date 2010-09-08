@@ -1,37 +1,33 @@
 print "Loading ", __name__
 
-import poser_extractor
-reload(poser_extractor)
-from poser_extractor import extract_mesh
-
-import geometry
+import geometry, poser_extractor
 reload(geometry)
-from geometry import Geometry
+reload(poser_extractor)
+
+from poser_extractor import extract_geometry
 
 
 class GeometryExporter(object):
     def __init__(self, subject, convert_material = None,
                  write_mesh_parameters = None, options = {}):
-        if convert_material:
-            self.convert_material = convert_material
-        if write_mesh_parameters:
-            self.write_mesh_parameters = write_mesh_parameters
+
+        self.convert_material = convert_material or (
+            lambda mat, key: ' NamedMaterial "%s/%s"' % (key, mat.Name())
+        )
+        self.write_mesh_parameters = write_mesh_parameters
         self.options = options
 
-        mesh = extract_mesh(subject)
-        self.materials = mesh.materials
-        self.mat_key = mesh.material_key
-
-        if mesh.polys:
-            self.geom = Geometry(mesh.verts, mesh.polys, mesh.poly_mats,
-                                 None, mesh.tverts, mesh.tpolys)
+        self.geom = extract_geometry(subject)
+        if self.geom is None or self.geom.is_empty:
+            print "Mesh is empty."
+        else:
             print "Mesh has", self.geom.number_of_polygons, "polygons and",
             print self.geom.number_of_points, "vertices"
             self.preprocess(options)
-        else:
-            self.geom = None
 
     def preprocess(self, options):
+        self.materials = [self.convert_material(mat, self.geom.material_key)
+                          for mat in self.geom.materials]
         do_normals = options.get('compute_normals', True)
         if do_normals and not do_normals in ['0', 'false', 'False']:
             self.geom.compute_normals()
@@ -40,15 +36,10 @@ class GeometryExporter(object):
             self.geom.subdivide()
         self.geom.convert_to_per_vertex_uvs()
 
-    def convert_material(self, mat, key):
-        return ' NamedMaterial "%s/%s"' % (key, mat.Name())
-
-    def write_mesh_parameters(self, file, sub, options):
-        pass
-    
     def write_submesh(self, file, sub):
         print >>file, 'Shape "mesh"'
-        self.write_mesh_parameters(file, sub, self.options) 
+        if self.write_mesh_parameters:
+            self.write_mesh_parameters(file, sub, self.options) 
 
         print >>file, ' "integer triindices" ['
         for u, v, w in sub.triangles: print >>file, u, v, w
@@ -69,12 +60,13 @@ class GeometryExporter(object):
             print >>file, ']\n'
 
     def write(self, file):
-        if not self.geom: return
+        if self.geom.is_empty:
+            return
         
-        for mat_idx, mat in enumerate(self.materials):
-            sub = self.geom.extract_by_material(mat_idx)
+        for i, mat in enumerate(self.materials):
+            sub = self.geom.extract_by_material(i)
             if not sub.is_empty:
                 print >>file, 'AttributeBegin'
-                print >>file, self.convert_material(mat, self.mat_key)
+                print >>file, mat
                 self.write_submesh(file, sub)
                 print >>file, 'AttributeEnd\n'

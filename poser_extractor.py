@@ -3,6 +3,9 @@ print "Loading ", __name__
 import poser
 import Numeric as num
 
+from geometry import Geometry
+
+
 def topological_order(children):
     seen = {}
     result = []
@@ -183,10 +186,10 @@ class SimpleMesh(object):
             self.poly_mats = [p.MaterialIndex() for p in polys]
             self.materials = geom.Materials()
         else:
-            self.polys = None
+            self.polys = []
 
 
-def extract_mesh(subject):
+def extract_geometry(subject):
     if isinstance(subject, poser.ActorType):
         print 'Exporting actor', subject.Name()
         figure = subject.ItsFigure()
@@ -198,5 +201,12 @@ def extract_mesh(subject):
     else:
         raise TypeError("Argument must be an actor or figure.")
 
-    mesh.material_key = (figure or subject).Name()
-    return mesh
+    if mesh.polys:
+        geom = Geometry(mesh.verts, mesh.polys, mesh.poly_mats,
+                        None, mesh.tverts, mesh.tpolys)
+        geom.materials = mesh.materials
+        geom.material_key = (figure or subject).Name()
+    else:
+        geom = None
+        
+    return geom
