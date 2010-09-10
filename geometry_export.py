@@ -34,6 +34,5 @@ class GeometryExporter(object):
 
             materials = get_materials(geom, convert_material)
             preprocess(geom, options)
-            to_lux.preprocess(geom)
             self.write = lambda file: to_lux.write(file, geom, materials,
                                                    write_mesh_parameters)

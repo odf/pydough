@@ -1,16 +1,22 @@
 print "Loading ", __name__
 
 
-def preprocess(geometry):
-    geometry.convert_to_per_vertex_uvs()
-
 def write(file, geometry, materials, write_mesh_parameters = None):
     if geometry.is_empty:
         return
         
     for i, mat in enumerate(materials):
         sub = geometry.extract_by_material(i)
-        if not sub.is_empty:
+        if sub.is_empty:
+            print "  skipping", mat,
+            print "    with", sub.number_of_polygons, "polygons and",
+            print sub.number_of_points, "vertices"
+        else:
+            print "  exporting", mat,
+            print "    with", sub.number_of_polygons, "polygons and",
+            print sub.number_of_points, "vertices"
+
+            sub.convert_to_per_vertex_uvs()
             print >>file, 'AttributeBegin'
             print >>file, mat
             print >>file, 'Shape "mesh"'

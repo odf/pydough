@@ -65,7 +65,6 @@ class Geometry(object):
                                   [self.tpolys[i] for i in poly_indices])
             geom = Geometry(geomesh.verts, geomesh.polys, poly_mats, normals,
                             texmesh.verts, texmesh.polys)
-            geom.reorder_tex_verts()
             return geom
         else:
             return Geometry(geomesh.verts, geomesh.polys, poly_mats, normals)
@@ -277,7 +276,7 @@ class Geometry(object):
         self.tpolys = [[corner_from_tex[v] for v in p] for p in tpolys]
 
     def is_empty(self):
-        return self.number_of_points == 0 or self.number_of_polygons == 0
+        return (self.number_of_points == 0) or (self.number_of_polygons == 0)
     is_empty = property(is_empty)
 
     def number_of_normals(self):
