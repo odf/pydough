@@ -101,6 +101,8 @@ class WeldedFigureMesh(object):
             a_name = actor.Name()
             for i, mat in enumerate(actor.Geometry().Materials() or []):
                 m_name = mat.Name()
+                # -- materials from geometry are incorrect (hat tip Dizzi)
+                mat = actor.Material(m_name)
                 if not material_index.has_key(m_name):
                     material_index[m_name] = len(materials)
                     materials.append(mat)
