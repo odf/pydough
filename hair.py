@@ -66,12 +66,13 @@ def fiber_polygons(n, m):
 class HairGeometry(Geometry):
     def __init__(self, verts, polys, poly_mats = None, normals = None,
                  tverts = None, tpolys = None, options = {}):
-        width = 0.001
+        r_root = options.get('root_radius', 0.0001)
+        r_tip  = options.get('tip_radius', 0.00004)
         hair_verts = num.zeros([0,3], "double")
         hair_polys = []
         hair_poly_mats = []
         for p, m in map(None, polys, poly_mats):
-            new_verts, new_polys = make_fiber(num.take(verts, p), width, width)
+            new_verts, new_polys = make_fiber(num.take(verts, p), r_root, r_tip)
             n = len(hair_verts)
             hair_polys.extend([[v + n for v in p] for p in new_polys])
             hair_poly_mats.extend([m] * len(new_polys))

@@ -192,6 +192,15 @@ class SimpleMesh(object):
             self.polys = []
 
 
+def get_hair_group_for(actor):
+    name = actor.InternalName()
+    parent = actor.Parent()
+    for i in xrange(parent.NumHairGroups()):
+        g = parent.HairGroup(i)
+        if g.Name() == name:
+            return g
+    return None
+    
 def get(subject):
     if isinstance(subject, poser.ActorType):
         print 'Exporting actor', subject.Name()
@@ -206,8 +215,13 @@ def get(subject):
 
     if mesh.polys:
         if hasattr(subject, 'IsHairProp') and subject.IsHairProp():
+            group = get_hair_group_for(subject)
+            options = {
+                'root_radius': group.RootWidth() * 1e-4,
+                'tip_radius' : group.TipWidth()  * 1e-4
+                }
             geom = HairGeometry(mesh.verts, mesh.polys, mesh.poly_mats,
-                                None, mesh.tverts, mesh.tpolys)
+                                None, mesh.tverts, mesh.tpolys, options)
         else:
             geom = Geometry(mesh.verts, mesh.polys, mesh.poly_mats,
                             None, mesh.tverts, mesh.tpolys)
