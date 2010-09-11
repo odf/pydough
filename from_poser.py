@@ -4,6 +4,7 @@ import poser
 import Numeric as num
 
 from geometry import Geometry
+from hair import HairGeometry
 
 
 def topological_order(children):
@@ -204,8 +205,12 @@ def get(subject):
         raise TypeError("Argument must be an actor or figure.")
 
     if mesh.polys:
-        geom = Geometry(mesh.verts, mesh.polys, mesh.poly_mats,
-                        None, mesh.tverts, mesh.tpolys)
+        if hasattr(subject, 'IsHairProp') and subject.IsHairProp():
+            geom = HairGeometry(mesh.verts, mesh.polys, mesh.poly_mats,
+                                None, mesh.tverts, mesh.tpolys)
+        else:
+            geom = Geometry(mesh.verts, mesh.polys, mesh.poly_mats,
+                            None, mesh.tverts, mesh.tpolys)
         geom.materials = mesh.materials
         geom.material_key = (figure or subject).Name()
     else:

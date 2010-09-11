@@ -49,7 +49,7 @@ class Geometry(object):
         print " ".join(map(str, args))
 
     def extract_by_material(self, material_index):
-        return self.extract([i for i, n in enumerate(self.poly_mats)
+        return self.extract([i for i, n in enumerate(self.poly_mats or [])
                              if n == material_index])
 
     def extract(self, poly_indices):

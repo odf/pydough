@@ -3,6 +3,8 @@ print "# Loading ", __name__
 import math
 import Numeric as num
 
+from geometry import Geometry
+
 
 def normalize(rows):
     norms = num.sqrt(num.maximum(num.sum(rows * rows, 1), 1e-16))
@@ -59,6 +61,23 @@ def fiber_polygons(n, m):
     polys[-1] = range(n * m, (n + 1) * m)
 
     return polys
+
+
+class HairGeometry(Geometry):
+    def __init__(self, verts, polys, poly_mats = None, normals = None,
+                 tverts = None, tpolys = None, options = {}):
+        width = 0.001
+        hair_verts = num.zeros([0,3], "double")
+        hair_polys = []
+        hair_poly_mats = []
+        for p, m in map(None, polys, poly_mats):
+            new_verts, new_polys = make_fiber(num.take(verts, p), width, width)
+            n = len(hair_verts)
+            hair_polys.extend([[v + n for v in p] for p in new_polys])
+            hair_poly_mats.extend([m] * len(new_polys))
+            hair_verts = num.concatenate([hair_verts, new_verts])
+
+        Geometry.__init__(self, hair_verts, hair_polys, hair_poly_mats)
 
 
 if __name__ == "__main__":

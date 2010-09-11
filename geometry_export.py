@@ -1,7 +1,8 @@
 print "Loading ", __name__
 
-import geometry, from_poser, to_lux
+import geometry, hair, from_poser, to_lux
 reload(geometry)
+reload(hair)
 reload(from_poser)
 reload(to_lux)
 import from_poser, to_lux
