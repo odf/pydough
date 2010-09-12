@@ -1,3 +1,5 @@
+import time
+    
 from Tkinter import *
 import tkFileDialog
 import tkSimpleDialog
@@ -14,29 +16,11 @@ buttoncolor = '#e0e0f0'
 activebuttoncolor = '#e8e8f8'
 
 
-def format_error(exc_info, where = None, verbose = 0):
-    import string, sys, traceback
-
-    (exc_type, exc_val, exc_tb) = exc_info
-
-    message = ["%s - %s" % (exc_type.__name__, exc_val)]
-    if where is not None:
-        message.append("(%s)" % str(where))
-
-    if verbose:
-        message.append("")
-        message.append("Traceback (innermost last):")
-        for entry in traceback.extract_tb(exc_tb):
-            message.append('    File "%s", line %s, in %s\n        %s'
-                           % entry)
-    return string.join(message, "\n")
-
-
 class ErrorDialog(tkSimpleDialog.Dialog):
     def __init__(self, parent, exc_info, title = None):
         self.exc_info = exc_info
-        self.message = format_error(exc_info)
         self.details_shown = False
+        self.message = self.format_error()
         tkSimpleDialog.Dialog.__init__(self, parent, title)
 
     def body(self, master):
@@ -57,10 +41,23 @@ class ErrorDialog(tkSimpleDialog.Dialog):
 
         box.pack()
 
+    def format_error(self):
+        import traceback
+
+        (exc_type, exc_val, exc_tb) = self.exc_info
+
+        message = ["%s - %s" % (exc_type.__name__, exc_val)]
+        if self.details_shown:
+            message.append("")
+            message.append("Traceback (innermost last):")
+            for entry in traceback.extract_tb(exc_tb):
+                message.append('    File "%s", line %s, in %s\n        %s'
+                               % entry)
+        return "\n".join(message)
+
     def details(self):
         self.details_shown = not self.details_shown
-        self.text.configure(text = format_error(self.exc_info,
-                                                verbose = self.details_shown))
+        self.text.configure(text = self.format_error())
 
 
 class MessageDialog(tkSimpleDialog.Dialog):
@@ -162,7 +159,8 @@ class Main(tk_background.GUI):
         opts = Frame(self.master, background = buttoncolor)
         opts.pack(fill = 'x', expand = 1)
 
-        l = Label(opts, text = "Actions:", background = buttoncolor)
+        l = Label(opts, text = "-- (this space for rent) --",
+                  background = buttoncolor)
         l.pack(side = 'left', fill = 'x', expand = 1)
         
         textframe = Frame(self.master)
@@ -209,6 +207,8 @@ class Main(tk_background.GUI):
     def go(self):
         import os.path
 
+        self.status.configure(text = "Working...")
+
         if hasattr(self, "save_button"):
             self.save_button.destroy()
             del self.save_button
@@ -250,32 +250,49 @@ class Main(tk_background.GUI):
 
 
 class Worker(tk_background.Worker):
-    def put_error(self, where = None):
-        self.results.put(("Error", sys.exc_info()))
-
+    def __init__(self, method, *args, **kwargs):
+        self.method = method
+        self.args   = args
+        self.kwargs = kwargs
+        self.buffer = []
+        tk_background.Worker.__init__(self)
+    
     def work(self, task):
-        options = task
-
         try:
-            print "Testing only!"
-            res = "Okay!"
+            t = time.time()
+            res = self.method(*self.args, **self.kwargs)
+            t = time.time() - t
+            self.write("Time spent was %.2f seconds.\n" % t)
         except:
             res = None
-            self.put_error('in file %s' % short_name)
-            self.results.put(("Output",
-                              "   Error encountered! Giving up!\n"))
+            self.results.put(("Error", sys.exc_info()))
+            self.write("   Error encountered! Giving up!\n")
+        self.flush()
 
         self.results.put(("Done", res))
 
-    def write(self, string):
-        self.results.put(("Output", string))
+    def write(self, text):
+        i = text.rfind("\n") + 1
+        if i > 0:
+            self.buffer.append(text[:i])
+            self.flush()
+            text = text[i:]
+        self.buffer.append(text)
+
+    def flush(self):
+        self.results.put(("Output", "".join(self.buffer)))
+        self.buffer = []
 
 
-def go():
+def go(method, *args, **kwargs):
     root = Tk()
     root.title(window_title)
-    main = Main(root, Worker())
+    main = Main(root, Worker(method, *args, **kwargs))
+    root.protocol("WM_DELETE_WINDOW", main.end)
     root.mainloop()
 
+def hello():
+    print "Hello world!"
+
 if __name__ == "__main__":
-    go()
+    go(hello)

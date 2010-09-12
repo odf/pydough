@@ -30,10 +30,32 @@ class GeometryExporter(object):
             print "Mesh is empty."
             self.write = lambda file: None
         else:
-            print "Mesh has", geom.number_of_polygons, "polygons and",
-            print geom.number_of_points, "vertices"
+            print "Mesh has %s polygons and %s vertices" % (
+                geom.number_of_polygons, geom.number_of_points)
 
             materials = get_materials(geom, convert_material)
             preprocess(geom, options)
             self.write = lambda file: to_lux.write(file, geom, materials,
                                                    write_mesh_parameters)
+
+
+def findMyFolder():
+    # return the folder containing this script
+    import sys, os.path
+    return os.path.dirname(findMyFolder.func_code.co_filename)
+
+def exportScene(output = None, options = {}):
+    import poser
+    
+    if not output:
+        import os.path
+        print "Using default output path."
+        output = file(os.path.join(findMyFolder(), "test.lxo"), "w")
+
+    scene = poser.Scene()
+    for figure in scene.Figures():
+        if figure.Visible():
+            GeometryExporter(figure, options = options).write(output)
+    for actor in scene.Actors():
+        if actor.Visible() and actor.IsProp():
+            GeometryExporter(actor, options = options).write(output)

@@ -3,6 +3,9 @@ import threading, Queue
 import Tkinter
 
 
+END = object()
+
+
 class GUI:
     def __init__(self, master, worker):
         self.master = master
@@ -29,22 +32,34 @@ class GUI:
 
     def work(self):
         self.counter = self.counter + 1
-        self.worker.put(self.counter)
+        if self.counter > 5:
+            self.end()
+        else:
+            self.worker.put(self.counter)
+
+    def end(self):
+        self.worker.end()
+        self.master.destroy()
 
 
 class Worker:
     def __init__(self):
         self.tasks = Queue.Queue(1)
         self.results = Queue.Queue(10)
+        sys.stdout = self
 
         self.worker_thread = threading.Thread(target = self.go)
         self.worker_thread.setDaemon(1)
         self.worker_thread.start()
 
-        sys.stdout = self
-
     def put(self, x):
         self.tasks.put(x)
+
+    def end(self):
+        sys.stdout = sys.__stdout__
+        print "Terminating..."
+        self.tasks.put(END)
+        self.worker_thread.join()
 
     def get(self):
         try:
@@ -59,13 +74,14 @@ class Worker:
             except Queue.Empty:
                 time.sleep(0.1)
             else:
+                if task is END: break
                 self.work(task)
 
     def work(self, task):
         self.results.put("Task %s started." % task)
 
         # Pretend to do a lengthy computation:
-        time.sleep(20)
+        time.sleep(1)
 
         self.results.put("Task %s completed." % task)
 
@@ -76,5 +92,6 @@ class Worker:
 if __name__ == "__main__":
     root = Tkinter.Tk()
     root.title("Threading test")
-    GUI(root, Worker())
+    main = GUI(root, Worker())
+    root.protocol("WM_DELETE_WINDOW", main.end)
     root.mainloop()
