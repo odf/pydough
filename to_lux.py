@@ -1,5 +1,7 @@
 print "Loading ", __name__
 
+from portability import *
+
 
 def write(file, geometry, materials, write_mesh_parameters = None):
     if geometry.is_empty:
@@ -7,15 +9,7 @@ def write(file, geometry, materials, write_mesh_parameters = None):
         
     for i, mat in enumerate(materials):
         sub = geometry.extract_by_material(i)
-        if sub.is_empty:
-            print "  skipping", mat,
-            print "    with", sub.number_of_polygons, "polygons and",
-            print sub.number_of_points, "vertices"
-        else:
-            print "  exporting", mat,
-            print "    with", sub.number_of_polygons, "polygons and",
-            print sub.number_of_points, "vertices"
-
+        if not sub.is_empty:
             sub.convert_to_per_vertex_uvs()
             print >>file, 'AttributeBegin'
             print >>file, mat

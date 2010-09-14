@@ -1,7 +1,11 @@
+from __future__ import generators
+
 print "Loading ", __name__
 
 import math
 import Numeric as num
+
+from portability import *
 
 
 def normalize(rows):
