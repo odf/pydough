@@ -1,5 +1,7 @@
 print "Loading ", __name__
 
+from portability import *
+
 
 def write(file, geometry, materials, write_mesh_parameters = None):
     if geometry.is_empty:

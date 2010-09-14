@@ -3,6 +3,7 @@ print "Loading ", __name__
 import poser
 import Numeric as num
 
+from portability import *
 from geometry import Geometry
 from hair import HairGeometry
 

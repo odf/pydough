@@ -1,5 +1,8 @@
 print "Loading ", __name__
 
+import os.path
+
+from portability import *
 import geometry, hair, from_poser, to_lux
 reload(geometry)
 reload(hair)
@@ -41,16 +44,21 @@ class GeometryExporter(object):
 
 def findMyFolder():
     # return the folder containing this script
-    import sys, os.path
-    return os.path.dirname(findMyFolder.func_code.co_filename)
+    import inspect
+    import portability
+    return os.path.dirname(inspect.getsourcefile(portability))
+
 
 def exportScene(output = None, options = {}):
+    import time
     import poser
     
     if not output:
-        import os.path
-        print "Using default output path."
-        output = file(os.path.join(findMyFolder(), "test.lxo"), "w")
+        filename = os.path.join(findMyFolder(), "test.lxo")
+        output = file(filename, "w")
+        print "Exporting to %s..." % filename
+
+    t = time.time()
 
     scene = poser.Scene()
     for figure in scene.Figures():
@@ -59,3 +67,10 @@ def exportScene(output = None, options = {}):
     for actor in scene.Actors():
         if actor.Visible() and actor.IsProp():
             GeometryExporter(actor, options = options).write(output)
+
+    t = time.time() - t
+    print "Time spent was %.2f seconds." % t
+
+
+if __name__ == "__main__":
+    exportScene()
