@@ -198,8 +198,9 @@ def get_hair_group_for(actor):
     parent = actor.Parent()
     for i in xrange(parent.NumHairGroups()):
         g = parent.HairGroup(i)
-        if g.Name() == name:
+        if g.HairProp().InternalName() == name:
             return g
+    print ("!!! Couldn't find hair group for '%s' !!!" % name)
     return None
     
 def get(subject):
