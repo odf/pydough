@@ -1,6 +1,6 @@
 print "# Loading ", __name__
 
-import math
+import math, copy
 import Numeric as num
 
 from geometry import Geometry
@@ -68,17 +68,21 @@ class HairGeometry(Geometry):
                  tverts = None, tpolys = None, options = {}):
         r_root = options.get('root_radius', 0.0001)
         r_tip  = options.get('tip_radius', 0.00004)
-        hair_verts = num.zeros([0,3], "double")
-        hair_polys = []
+        hair_verts     = num.zeros([0,3], "double")
+        hair_tverts    = num.zeros([0,2], "double")
+        hair_polys     = []
         hair_poly_mats = []
-        for p, m in map(None, polys, poly_mats):
+        for p, t, m in map(None, polys, tpolys, poly_mats):
             new_verts, new_polys = make_fiber(num.take(verts, p), r_root, r_tip)
-            n = len(hair_verts)
-            hair_polys.extend([[v + n for v in p] for p in new_polys])
+            offset = len(hair_verts)
+            hair_polys.extend([[v + offset for v in p] for p in new_polys])
             hair_poly_mats.extend([m] * len(new_polys))
             hair_verts = num.concatenate([hair_verts, new_verts])
+            hair_tverts = num.concatenate(
+                [hair_tverts, [tverts[t[0]]] * len(new_verts)])
 
-        Geometry.__init__(self, hair_verts, hair_polys, hair_poly_mats)
+        Geometry.__init__(self, hair_verts, hair_polys, hair_poly_mats,
+                          None, hair_tverts, copy.deepcopy(hair_polys))
 
 
 if __name__ == "__main__":
