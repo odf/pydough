@@ -84,6 +84,9 @@ class HairGeometry(Geometry):
         Geometry.__init__(self, hair_verts, hair_polys, hair_poly_mats,
                           None, hair_tverts, copy.deepcopy(hair_polys))
 
+    def check_tpolys(self):
+        pass
+
 
 if __name__ == "__main__":
     verts, polys = make_fiber([[1,0,0],[0,1,1],[-1,2,0],[0,3,-1],[1,4,0]],

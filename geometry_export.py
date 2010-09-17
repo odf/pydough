@@ -20,15 +20,13 @@ def get_materials(geom, convert = None):
     return [f(mat, geom.material_key) for mat in geom.materials]
 
 def preprocess(geom, options = {}):
-    # if (is_set(options, 'compute_normals')
-    #     and (not isinstance(geom, HairGeometry)
-    #          or is_set(options, 'compute_normals_for_hair', False))):
     if is_set(options, 'compute_normals'):
         print "  computing normals"
         geom.compute_normals()
-    for i in xrange(int(options.get('subdivisionlevel', 0))):
-        print "  subdividing: pass", (i+1)
-        geom.subdivide()
+    if not isinstance(geom, HairGeometry):
+        for i in xrange(int(options.get('subdivisionlevel', 0))):
+            print "  subdividing: pass", (i+1)
+            geom.subdivide()
 
 
 class GeometryExporter(object):
