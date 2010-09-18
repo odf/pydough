@@ -1,6 +1,6 @@
 print "# Loading ", __name__
 
-import math, copy
+import math
 import Numeric as num
 
 from geometry import Geometry
@@ -82,7 +82,7 @@ class HairGeometry(Geometry):
                 [hair_tverts, [tverts[t[0]]] * len(new_verts)])
 
         Geometry.__init__(self, hair_verts, hair_polys, hair_poly_mats,
-                          None, hair_tverts, copy.deepcopy(hair_polys))
+                          None, hair_tverts, [p[:] for p in hair_polys])
 
     def check_tpolys(self):
         pass
