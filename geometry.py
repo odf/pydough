@@ -32,7 +32,9 @@ class Geometry(object):
         self.tpolys    = tpolys
 
         self.log = options.get('logger', self.default_logger)
+        self.check_tpolys()
 
+    def check_tpolys(self):
         if self.tpolys and self.tverts:
             if len(self.polys) != len(self.tpolys):
                 self.tverts = self.tpolys = None

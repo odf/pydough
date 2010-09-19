@@ -9,19 +9,24 @@ reload(hair)
 reload(from_poser)
 reload(to_lux)
 import from_poser, to_lux
+from hair import HairGeometry
 
 
-def get_materials(geometry, convert = None):
+def is_set(options, key, default = True):
+    return options.get(key, default) in [True, 1, '1', 'true']
+
+def get_materials(geom, convert = None):
     f = convert or (lambda mat, k: ' NamedMaterial "%s/%s"' % (k, mat.Name()))
-    return [f(mat, geometry.material_key) for mat in geometry.materials]
+    return [f(mat, geom.material_key) for mat in geom.materials]
 
-
-def preprocess(geometry, options = {}):
-    if options.get('compute_normals', True) in [True, 1, '1', 'true']:
-        geometry.compute_normals()
-    for i in xrange(int(options.get('subdivisionlevel', 0))):
-        print "  subdividing: pass", (i+1)
-        geometry.subdivide()
+def preprocess(geom, options = {}):
+    if not isinstance(geom, HairGeometry):
+        if is_set(options, 'compute_normals'):
+            print "  computing normals"
+            geom.compute_normals()
+        for i in xrange(int(options.get('subdivisionlevel', 0))):
+            print "  subdividing: pass", (i+1)
+            geom.subdivide()
 
 
 class GeometryExporter(object):

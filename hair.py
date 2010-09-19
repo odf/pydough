@@ -33,7 +33,9 @@ def make_fiber(verts_in, r_start = 0.01, r_end = 0.01, gon = 5):
                          for i in xrange(gon)])
 
     verts_out = num.zeros([n * gon, 3], "double")
+    normals   = num.zeros([n * gon, 3], "double")
     verts_out[:gon] = section * r_start + verts_in[0]
+    normals[:gon]   = section
 
     for i in xrange(n - 2):
         d = bisectors[i]
@@ -42,12 +44,14 @@ def make_fiber(verts_in, r_start = 0.01, r_end = 0.01, gon = 5):
         section = section - f / num.dot(d, u) * u
         r = ((i + 1) * r_end + (n - i - 1) * r_start) / n
         verts_out[(i + 1)*gon : (i + 2)*gon] = section * r + verts_in[i + 1]
+        normals[(i + 1)*gon : (i + 2)*gon]   = section
 
     d = directions[-1]
     section = section - num.sum(section * d, 1)[:, num.NewAxis] * d
     verts_out[-gon:] = section * r_end + verts_in[-1]
+    normals[-gon:]   = section
 
-    return verts_out, fiber_polygons(n - 1, gon)
+    return verts_out, normalize(normals), fiber_polygons(n - 1, gon)
 
 def fiber_polygons(n, m):
     polys = [None] * (2 + n * m)
@@ -68,17 +72,27 @@ class HairGeometry(Geometry):
                  tverts = None, tpolys = None, options = {}):
         r_root = options.get('root_radius', 0.0001)
         r_tip  = options.get('tip_radius', 0.00004)
-        hair_verts = num.zeros([0,3], "double")
-        hair_polys = []
+        hair_verts     = num.zeros([0,3], "double")
+        hair_normals   = num.zeros([0,3], "double")
+        hair_tverts    = num.zeros([0,2], "double")
+        hair_polys     = []
         hair_poly_mats = []
-        for p, m in map(None, polys, poly_mats):
-            new_verts, new_polys = make_fiber(num.take(verts, p), r_root, r_tip)
-            n = len(hair_verts)
-            hair_polys.extend([[v + n for v in p] for p in new_polys])
+        for p, t, m in map(None, polys, tpolys, poly_mats):
+            new_verts, new_normals, new_polys = make_fiber(num.take(verts, p),
+                                                           r_root, r_tip)
+            offset = len(hair_verts)
+            hair_polys.extend([[v + offset for v in p] for p in new_polys])
             hair_poly_mats.extend([m] * len(new_polys))
-            hair_verts = num.concatenate([hair_verts, new_verts])
+            hair_verts   = num.concatenate([hair_verts, new_verts])
+            hair_normals = num.concatenate([hair_normals, new_normals])
+            hair_tverts  = num.concatenate(
+                [hair_tverts, [tverts[t[0]]] * len(new_verts)])
 
-        Geometry.__init__(self, hair_verts, hair_polys, hair_poly_mats)
+        Geometry.__init__(self, hair_verts, hair_polys, hair_poly_mats,
+                          hair_normals, hair_tverts, [p[:] for p in hair_polys])
+
+    def check_tpolys(self):
+        pass
 
 
 if __name__ == "__main__":
