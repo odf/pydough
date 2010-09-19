@@ -1,4 +1,4 @@
-print "# Loading ", __name__
+print "Loading ", __name__
 
 import math
 import Numeric as num
@@ -93,11 +93,3 @@ class HairGeometry(Geometry):
 
     def check_tpolys(self):
         pass
-
-
-if __name__ == "__main__":
-    verts, polys = make_fiber([[1,0,0],[0,1,1],[-1,2,0],[0,3,-1],[1,4,0]],
-                              0.2, 0.1)
-    for x,y,z in verts: print "v", x, y, z
-    for p in polys:
-        print "f", " ".join(map(lambda i: str(i + 1), p))

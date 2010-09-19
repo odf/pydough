@@ -1,10 +1,6 @@
-import time
-    
 from Tkinter import *
 import tkFileDialog
 import tkSimpleDialog
-
-import tk_background
 
 
 copyright_msg = "PyDough Poser Exporter - odf 2010"
@@ -133,16 +129,24 @@ class PropertyDialog(tkSimpleDialog.Dialog):
         self.props_out = props
 
 
-class Main(tk_background.GUI):
+class Main(object):
+    def __init__(self, master, worker):
+        self.master = master
+        self.worker = worker
+        self.start_GUI()
+
+    def end(self):
+        self.master.destroy()
+        
     def start_GUI(self):
-        out_file_types = (
-            ( "Luxrender object files", ".lxo" ),
+        log_file_types = (
+            ( "Text files", ".txt" ),
             ( "All files",  "*" ),
             )
 
-        self.saveAsFileDialog = tkFileDialog.SaveAs(self.master,
-                                                    filetypes = out_file_types,
-                                                    title = "Save file")
+        self.saveLogFileDialog = tkFileDialog.SaveAs(self.master,
+                                                     filetypes = log_file_types,
+                                                     title = "Save log")
         
         f = Frame(self.master, background = textcolor)
         f.pack(fill = 'x', expand = 1)
@@ -184,9 +188,9 @@ class Main(tk_background.GUI):
     def save(self):
         import os.path
 
-        default_name = "test.lxo"
+        default_name = "pydough-log.txt"
 
-        file_name = self.saveAsFileDialog.show(initialfile = default_name)
+        file_name = self.saveLogFileDialog.show(initialfile = default_name)
         if not file_name:
             return
 
@@ -217,8 +221,7 @@ class Main(tk_background.GUI):
 
         self.output.delete("1.0", END)
 
-        options = {}
-        self.worker.put(options)
+        self.worker.go(self.process_output)
 
     def process_output(self, item):
         mode, data = item
@@ -235,41 +238,39 @@ class Main(tk_background.GUI):
         elif mode == "Done":
             self.status.configure(text = "- Done -")
 
-            if data:
-                self.save_button = Button(self.master,
-                                          text = "Save log",
-                                          command = self.save,
-                                          background = buttoncolor,
-                                          activebackground =
-                                          activebuttoncolor)
-                self.save_button.pack(side = 'left', fill = 'both', expand = 1)
+            self.save_button = Button(self.master,
+                                      text = "Save log",
+                                      command = self.save,
+                                      background = buttoncolor,
+                                      activebackground =
+                                      activebuttoncolor)
+            self.save_button.pack(side = 'left', fill = 'both', expand = 1)
 
             self.go_button.configure(state = 'normal')
 
         self.master.update()
 
 
-class Worker(tk_background.Worker):
+class Worker(object):
     def __init__(self, method, *args, **kwargs):
-        self.method = method
-        self.args   = args
-        self.kwargs = kwargs
-        self.buffer = []
-        tk_background.Worker.__init__(self)
+        self.method  = method
+        self.args    = args
+        self.kwargs  = kwargs
+        self.buffer  = []
     
-    def work(self, task):
+    def go(self, emit):
+        sys.stdout = self
+        self.emit = emit
         try:
-            t = time.time()
             res = self.method(*self.args, **self.kwargs)
-            t = time.time() - t
-            self.write("Time spent was %.2f seconds.\n" % t)
         except:
             res = None
-            self.results.put(("Error", sys.exc_info()))
+            self.emit(("Error", sys.exc_info()))
             self.write("   Error encountered! Giving up!\n")
         self.flush()
 
-        self.results.put(("Done", res))
+        self.emit(("Done", res))
+        sys.stdout = sys.__stdout__
 
     def write(self, text):
         i = text.rfind("\n") + 1
@@ -280,7 +281,7 @@ class Worker(tk_background.Worker):
         self.buffer.append(text)
 
     def flush(self):
-        self.results.put(("Output", "".join(self.buffer)))
+        self.emit(("Output", "".join(self.buffer)))
         self.buffer = []
 
 
@@ -291,8 +292,15 @@ def go(method, *args, **kwargs):
     root.protocol("WM_DELETE_WINDOW", main.end)
     root.mainloop()
 
-def hello():
-    print "Hello world!"
+def export():
+    import poser
+
+    import geometry_export
+    reload(geometry_export)
+    from geometry_export import exportScene
+
+    exportScene()
+
 
 if __name__ == "__main__":
-    go(hello)
+    go(export)
