@@ -1,3 +1,4 @@
+import os.path
 from Tkinter import *
 import tkFileDialog
 import tkSimpleDialog
@@ -12,6 +13,13 @@ buttoncolor = '#e0e0f0'
 activebuttoncolor = '#e8e8f8'
 
 
+def findMyFolder():
+    # return the folder containing this script
+    import inspect
+    import portability
+    return os.path.dirname(inspect.getsourcefile(portability))
+
+
 class ErrorDialog(tkSimpleDialog.Dialog):
     def __init__(self, parent, exc_info, title = None):
         self.exc_info = exc_info
@@ -22,7 +30,7 @@ class ErrorDialog(tkSimpleDialog.Dialog):
     def body(self, master):
         self.text = Label(master, text = self.message,
                           anchor = W, justify = LEFT)
-        self.text.pack()
+        self.text.pack(expand = 1, fill = BOTH)
         return self.text
 
     def buttonbox(self):
@@ -133,6 +141,7 @@ class Main(object):
     def __init__(self, master, worker):
         self.master = master
         self.worker = worker
+        self.output_path = os.path.join(findMyFolder(), "test.lxo")
         self.start_GUI()
 
     def end(self):
@@ -143,10 +152,17 @@ class Main(object):
             ( "Text files", ".txt" ),
             ( "All files",  "*" ),
             )
-
         self.saveLogFileDialog = tkFileDialog.SaveAs(self.master,
                                                      filetypes = log_file_types,
                                                      title = "Save log")
+        
+        out_file_types = (
+            ( "LuxRender geometry files", ".lxo" ),
+            ( "All files",  "*" ),
+            )
+        self.saveObjFileDialog = tkFileDialog.SaveAs(self.master,
+                                                     filetypes = out_file_types,
+                                                     title = "Save geometry")
         
         f = Frame(self.master, background = textcolor)
         f.pack(fill = 'x', expand = 1)
@@ -163,9 +179,16 @@ class Main(object):
         opts = Frame(self.master, background = buttoncolor)
         opts.pack(fill = 'x', expand = 1)
 
-        l = Label(opts, text = "-- (this space for rent) --",
-                  background = buttoncolor)
+        l = Label(opts, text = "Output:", background = buttoncolor)
+        l.pack(side = 'left')
+        l = Label(opts, text = self.output_path, anchor = W,
+                  background = "white")
         l.pack(side = 'left', fill = 'x', expand = 1)
+        self.output_label = l
+        b = Button(opts, text = "Change", command = self.select_output,
+                   background = buttoncolor,
+                   activebackground = activebuttoncolor)
+        b.pack(side = 'right')
         
         textframe = Frame(self.master)
         textframe.pack(fill = 'both', expand = 1)
@@ -186,9 +209,7 @@ class Main(object):
         ErrorDialog(self.master, sys.exc_info(), title = "Runtime error")
 
     def save(self):
-        import os.path
-
-        default_name = "pydough-log.txt"
+        default_name = os.path.splitext(self.output_path)[0] + '-log.txt'
 
         file_name = self.saveLogFileDialog.show(initialfile = default_name)
         if not file_name:
@@ -208,9 +229,13 @@ class Main(object):
             else:
                 self.status.configure(text = "Output saved")
 
-    def go(self):
-        import os.path
+    def select_output(self):
+        path = self.saveObjFileDialog.show(initialfile = self.output_path)
+        if path:
+            self.output_path = path
+            self.output_label.configure(text = path)
 
+    def go(self):
         self.status.configure(text = "Working...")
 
         if hasattr(self, "save_button"):
@@ -221,13 +246,16 @@ class Main(object):
 
         self.output.delete("1.0", END)
 
-        self.worker.go(self.process_output)
+        dir, name = os.path.split(self.output_path)
+        self.worker.go(self.process_output, output_dir = dir, output_name = name)
 
     def process_output(self, item):
         mode, data = item
 
         if mode == "Error":
-            ErrorDialog(self.master, data)
+            data = ErrorDialog(self.master, data).format_error()
+            self.output.insert(END, data + "\r\n\n")
+            self.output.yview(END)
             self.status.configure(text = "- Error encountered -")
             self.go_button.configure(state = 'normal')
         elif mode == "Status":
@@ -258,11 +286,13 @@ class Worker(object):
         self.kwargs  = kwargs
         self.buffer  = []
     
-    def go(self, emit):
+    def go(self, emitter, **kwargs):
         sys.stdout = self
-        self.emit = emit
+        self.emit = emitter
         try:
-            res = self.method(*self.args, **self.kwargs)
+            tmp = self.kwargs.copy()
+            tmp.update(kwargs)
+            res = self.method(*self.args, **tmp)
         except:
             res = None
             self.emit(("Error", sys.exc_info()))
@@ -292,14 +322,14 @@ def go(method, *args, **kwargs):
     root.protocol("WM_DELETE_WINDOW", main.end)
     root.mainloop()
 
-def export():
+def export(**kwargs):
     import poser
 
     import geometry_export
     reload(geometry_export)
     from geometry_export import exportScene
 
-    exportScene()
+    exportScene(**kwargs)
 
 
 if __name__ == "__main__":

@@ -54,24 +54,28 @@ def findMyFolder():
     return os.path.dirname(inspect.getsourcefile(portability))
 
 
-def exportScene(output = None, options = {}):
+def exportScene(**kwargs):
     import time
     import poser
-    
-    if not output:
-        filename = os.path.join(findMyFolder(), "test.lxo")
-        output = file(filename, "w")
-        print "Exporting to %s..." % filename
+
+    output_dir  = kwargs.get('output_dir', findMyFolder())
+    output_name = kwargs.get('output_name', "test")
+    name, ext   = os.path.splitext(output_name)
+    if ext == '.lxo':
+        output_name = name
+    filename = os.path.join(output_dir, output_name + ".lxo")
+    output   = file(filename, "w")
+    print "Exporting to %s..." % filename
 
     t = time.time()
 
     scene = poser.Scene()
     for figure in scene.Figures():
         if figure.Visible():
-            GeometryExporter(figure, options = options).write(output)
+            GeometryExporter(figure, options = kwargs).write(output)
     for actor in scene.Actors():
         if actor.Visible() and actor.IsProp():
-            GeometryExporter(actor, options = options).write(output)
+            GeometryExporter(actor, options = kwargs).write(output)
 
     t = time.time() - t
     print "Time spent was %.2f seconds." % t
