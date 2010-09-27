@@ -68,17 +68,19 @@ def fiber_polygons(n, m):
 
 
 class HairGeometry(Geometry):
-    def __init__(self, verts, polys, poly_mats = None, normals = None,
-                 tverts = None, tpolys = None, options = {}):
-        r_root = options.get('root_radius', 0.0001)
-        r_tip  = options.get('tip_radius', 0.00004)
+    def compute(self):
+        if hasattr(self, '_processed'):
+            return
+
+        r_root = self.options.get('root_radius', 0.0001)
+        r_tip  = self.options.get('tip_radius', 0.00004)
         hair_verts     = num.zeros([0,3], "double")
         hair_normals   = num.zeros([0,3], "double")
         hair_tverts    = num.zeros([0,2], "double")
         hair_polys     = []
         hair_poly_mats = []
-        for p, t, m in map(None, polys, tpolys, poly_mats):
-            new_verts, new_normals, new_polys = make_fiber(num.take(verts, p),
+        for p, t, m in map(None, self.polys, self.tpolys, self.poly_mats):
+            new_verts, new_normals, new_polys = make_fiber(num.take(self.verts, p),
                                                            r_root, r_tip)
             offset = len(hair_verts)
             hair_polys.extend([[v + offset for v in p] for p in new_polys])
@@ -86,10 +88,58 @@ class HairGeometry(Geometry):
             hair_verts   = num.concatenate([hair_verts, new_verts])
             hair_normals = num.concatenate([hair_normals, new_normals])
             hair_tverts  = num.concatenate(
-                [hair_tverts, [tverts[t[0]]] * len(new_verts)])
+                [hair_tverts, [self.tverts[t[0]]] * len(new_verts)])
 
-        Geometry.__init__(self, hair_verts, hair_polys, hair_poly_mats,
-                          hair_normals, hair_tverts, [p[:] for p in hair_polys])
+        options = dict(self.options.items() + [('skip_check', True)])
+        self._processed = Geometry(hair_verts, hair_polys, hair_poly_mats,
+                                   hair_normals, hair_tverts,
+                                   [p[:] for p in hair_polys], options)
 
     def check_tpolys(self):
         pass
+
+    def gon(self):
+        return 5
+    gon = property(gon)
+
+    def number_of_normals(self):
+        return self.number_of_points
+    number_of_normals = property(number_of_normals)
+
+    def number_of_points(self):
+        return len(self.verts or []) * self.gon
+    number_of_points = property(number_of_points)
+
+    def number_of_polygons(self):
+        m = self.gon
+        return (2 - m) * len(self.polys or []) + self.number_of_points
+    number_of_polygons = property(number_of_polygons)
+
+    def number_of_texture_points(self):
+        return len(self.tverts or []) * self.gon
+    number_of_texture_points = property(number_of_texture_points)
+
+    def triangles(self):
+        self.compute()
+        for poly in (self._processed.polys or []):
+            for v in xrange(1, len(poly) - 1):
+                yield poly[0], poly[v], poly[v + 1]
+    triangles = property(triangles)
+
+    def points(self):
+        self.compute()
+        for v in (self._processed.verts or []):
+            yield tuple(v)
+    points = property(points)
+
+    def normals(self):
+        self.compute()
+        for n in (self._processed._normals or []):
+            yield tuple(n)
+    normals = property(normals)
+
+    def texture_points(self):
+        self.compute()
+        for v in (self._processed.tverts or []):
+            yield tuple(v)
+    texture_points = property(texture_points)

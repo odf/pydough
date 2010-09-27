@@ -30,9 +30,11 @@ class Geometry(object):
         self._normals  = normals
         self.tverts    = tverts
         self.tpolys    = tpolys
+        self.options   = options
 
         self.log = options.get('logger', self.default_logger)
-        self.check_tpolys()
+        if not options.get('skip_check', False):
+            self.check_tpolys()
 
     def check_tpolys(self):
         if self.tpolys and self.tverts:
@@ -69,11 +71,13 @@ class Geometry(object):
         if self.tpolys and self.tverts:
             texmesh = SubmeshData(self.tverts,
                                   [self.tpolys[i] for i in poly_indices])
-            geom = Geometry(geomesh.verts, geomesh.polys, poly_mats, normals,
-                            texmesh.verts, texmesh.polys)
-            return geom
+            tverts = texmesh.verts
+            tpolys = texmesh.polys
         else:
-            return Geometry(geomesh.verts, geomesh.polys, poly_mats, normals)
+            tverts = tpolys = None
+            
+        return self.__class__(geomesh.verts, geomesh.polys, poly_mats,
+                              normals, tverts, tpolys, self.options)
 
     def compute_normals(self):
         rotate = lambda v: num.take(v, [1,2,0], 1)
