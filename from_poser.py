@@ -186,7 +186,10 @@ class SimpleMesh(object):
             self.verts  = num.array([[v.X(), v.Y(), v.Z()] for v in verts], 'd')
             self.tverts = num.array([[v.U(), v.V()] for v in tverts], 'd')
             self.polys  = [grab(p, sets) for p in polys]
-            self.tpolys = [tgrab(p, tsets) for p in tpolys]
+            if tsets:
+                self.tpolys = [tgrab(p, tsets) for p in tpolys]
+            else:
+                self.tpolys = []
             self.poly_mats = [p.MaterialIndex() for p in polys]
             self.materials = geom.Materials()
         else:
