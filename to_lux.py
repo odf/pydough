@@ -13,6 +13,8 @@ def write(file, geometry, materials, write_mesh_parameters = None):
         if not sub.is_empty:
             if not isinstance(geometry, HairGeometry):
                 sub.convert_to_per_vertex_uvs()
+                # if material is glass:
+                #   sub.add_backside(thickness)
             print >>file, 'AttributeBegin'
             print >>file, mat
             print >>file, 'Shape "mesh"'
