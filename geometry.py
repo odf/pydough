@@ -223,6 +223,22 @@ class Geometry(object):
                 b = num.sum(num.take(verts, pcs)) / k
                 verts[v] = (verts[v] * (k - 3) + a - b) / k
 
+    def add_backside(self, distance):
+        if self._normals:
+            self._normals = num.concatenate([self._normals, -self._normals])
+            backverts = self.verts - self._normals * distance
+        else:
+            backverts = self.verts
+        self.verts = num.concatenate([self.verts, backverts])
+
+        n = len(self.polys)
+        self.polys += [[i + n for i in a[::-1]] for a in self.polys]
+
+        self.poly_mats += self.poly_mats
+
+        if self.tpolys:
+            self.polys += [a[::-1] for a in self.polys]
+
     def convert_to_per_vertex_uvs(self):
         if self.tpolys and self.tverts:
             self.fix_texture_seams()
