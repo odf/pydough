@@ -225,8 +225,8 @@ class Geometry(object):
 
     def add_backside(self, distance):
         if self._normals:
-            self._normals = num.concatenate([self._normals, -self._normals])
             backverts = self.verts - self._normals * distance
+            self._normals = num.concatenate([self._normals, -self._normals])
         else:
             backverts = self.verts
         self.verts = num.concatenate([self.verts, backverts])
@@ -236,8 +236,10 @@ class Geometry(object):
 
         self.poly_mats += self.poly_mats
 
-        if self.tpolys:
-            self.polys += [a[::-1] for a in self.polys]
+        if self.tverts:
+            self.tverts = num.concatenate([self.verts, self.tverts])
+            if self.tpolys:
+                self.tpolys += [[i + n for i in a[::-1]] for a in self.tpolys]
 
     def convert_to_per_vertex_uvs(self):
         if self.tpolys and self.tverts:
