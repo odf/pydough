@@ -229,15 +229,15 @@ class Geometry(object):
             self._normals = num.concatenate([self._normals, -self._normals])
         else:
             backverts = self.verts
+        n = len(self.verts)
         self.verts = num.concatenate([self.verts, backverts])
 
-        n = len(self.polys)
         self.polys += [[i + n for i in a[::-1]] for a in self.polys]
 
         self.poly_mats += self.poly_mats
 
         if self.tverts:
-            self.tverts = num.concatenate([self.verts, self.tverts])
+            self.tverts = num.concatenate([self.tverts, self.tverts])
             if self.tpolys:
                 self.tpolys += [[i + n for i in a[::-1]] for a in self.tpolys]
 
